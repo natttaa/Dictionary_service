@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"log"
-	service1 "service1/service"
+	service1 "service1/server"
 )
 
 func main() {

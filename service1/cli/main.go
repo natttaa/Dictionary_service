@@ -172,8 +172,8 @@ func (c *CLIClient) Translate(source, target, word string) error {
 	}
 
 	fmt.Printf("Перевод:\n")
-	fmt.Printf("  %s → %s\n", getLanguageName(source), getLanguageName(target))
-	fmt.Printf("  %s → %s\n", word, translateResp.Translation)
+	fmt.Printf("  %s\t%s\n", getLanguageName(source), getLanguageName(target))
+	fmt.Printf("  %s\t%s\n", word, translateResp.Translation)
 
 	c.logger.Info("Перевод выполнен успешно",
 		slog.String("source", source),
