@@ -17,7 +17,7 @@ CLI-приложение для изучения иностранных слов
                                                             └─────────────┘
 ```
 
-<img width="725" height="668" alt="image" src="https://github.com/user-attachments/assets/d9924f73-0b3d-406e-89cd-6542912402e5" />
+<img width="400" height="500" alt="image" src="https://github.com/user-attachments/assets/d9924f73-0b3d-406e-89cd-6542912402e5" />
 
 
 
