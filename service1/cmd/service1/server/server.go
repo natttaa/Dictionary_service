@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"service1/cmd/service1/config"
 	"time"
 )
 
 // Server представляет основной сервер приложения
 type Server struct {
-	config     *Config
+	config     *config.Config
 	httpClient *http.Client
 	logger     *slog.Logger
 }
 
 // NewServer создает новый экземпляр сервера
-func NewServer(config *Config) *Server {
+func NewServer(config *config.Config) *Server {
 	// Настраиваем логгер на основе конфигурации
 	logger := config.SetupLogger()
 

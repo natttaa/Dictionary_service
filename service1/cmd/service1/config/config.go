@@ -1,4 +1,4 @@
-package server
+package config
 
 import (
 	"encoding/json"
@@ -66,9 +66,9 @@ func findConfigFile() string {
 // DefaultConfig возвращает конфигурацию по умолчанию
 func DefaultConfig() *Config {
 	return &Config{
-		Port:                 8080,
+		Port:                 8081,
 		LogLevel:             "info",
-		DictionaryServiceURL: "http://localhost:8081",
+		DictionaryServiceURL: "http://localhost:8083",
 		TimeoutSeconds:       10,
 		Timeout:              10 * time.Second,
 	}
@@ -87,7 +87,12 @@ func validateConfig(config *Config) error {
 	}
 
 	// Валидация уровня логирования
-	validLogLevels := map[string]bool{"debug": true, "info": true, "warn": true, "error": true}
+	validLogLevels := map[string]bool{
+		"debug": true,
+		"info":  true,
+		"warn":  true,
+		"error": true}
+
 	if !validLogLevels[config.LogLevel] {
 		return fmt.Errorf("неверный уровень логирования: %s (допустимые: debug, info, warn, error)", config.LogLevel)
 	}

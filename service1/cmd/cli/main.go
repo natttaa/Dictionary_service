@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"service1/cmd/cli/client"
+	"service1/cmd/cli/config"
 )
 
 // printHelp выводит справку по использованию
@@ -33,7 +35,7 @@ func main() {
 	flag.Parse()
 
 	// Загрузка конфигурации
-	config, err := LoadConfig(*configPath)
+	config, err := config.LoadConfig(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Ошибка загрузки конфигурации: %v\n", err)
 		os.Exit(1)
@@ -49,7 +51,7 @@ func main() {
 	)
 
 	// Создание клиента
-	client := NewCLIClient(config.ServerURL, config.Timeout, logger)
+	client := client.NewCLIClient(config.ServerURL, config.Timeout, logger)
 
 	// Обработка команд
 	switch {
