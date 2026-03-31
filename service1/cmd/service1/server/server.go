@@ -12,7 +12,7 @@ import (
 type Server struct {
 	config     *config.Config
 	httpClient *http.Client
-	logger     *slog.Logger
+	Logger     *slog.Logger
 }
 
 // NewServer создает новый экземпляр сервера
@@ -25,7 +25,7 @@ func NewServer(config *config.Config) *Server {
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 		},
-		logger: logger,
+		Logger: logger,
 	}
 }
 
@@ -40,7 +40,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/v1/topics", s.handleTopics)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
-	s.logger.Info("Запуск сервера",
+	s.Logger.Info("Запуск сервера",
 		slog.String("addr", addr),
 		slog.String("dictionary_service", s.config.DictionaryServiceURL),
 		slog.String("log_level", s.config.LogLevel),
@@ -56,7 +56,7 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 
 		// Логируем входящий запрос
-		s.logger.Info("Входящий запрос",
+		s.Logger.Info("Входящий запрос",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 		)
@@ -64,7 +64,7 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 
 		// Логируем завершение запроса
-		s.logger.Info("Запрос обработан",
+		s.Logger.Info("Запрос обработан",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Duration("duration", time.Since(start)),

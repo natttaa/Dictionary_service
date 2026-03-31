@@ -20,7 +20,7 @@ type Config struct {
 // LoadConfig загружает конфигурацию из файла
 func LoadConfig(configPath string) (*Config, error) {
 	if configPath == "" {
-		configPath = findConfigFile()
+		configPath = tryToLoadStandartConfigFile()
 	}
 
 	if configPath == "" {
@@ -47,19 +47,13 @@ func LoadConfig(configPath string) (*Config, error) {
 	return &config, nil
 }
 
-// findConfigFile ищет файл конфигурации в стандартных местах
-func findConfigFile() string {
-	paths := []string{
-		"configs/service.json",
-		"../configs/service.json",
-		"./service.json",
+func tryToLoadStandartConfigFile() string {
+	path := "configs/service.json"
+
+	if _, err := os.ReadFile(path); err == nil {
+		return path
 	}
 
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
 	return ""
 }
 

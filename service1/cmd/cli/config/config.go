@@ -61,7 +61,7 @@ func (c *CLIConfig) UnmarshalJSON(data []byte) error {
 // LoadConfig загружает конфигурацию из файла
 func LoadConfig(configPath string) (*CLIConfig, error) {
 	if configPath == "" {
-		configPath = findConfigFile()
+		configPath = tryToLoadStandartConfigFile()
 	}
 
 	if configPath == "" {
@@ -86,19 +86,13 @@ func LoadConfig(configPath string) (*CLIConfig, error) {
 	return &config, nil
 }
 
-// findConfigFile ищет файл конфигурации в стандартных местах
-func findConfigFile() string {
-	paths := []string{
-		"configs/cli.json",
-		"../configs/cli.json",
-		"./cli.json",
+func tryToLoadStandartConfigFile() string {
+	path := "configs/cli.json"
+
+	if _, err := os.ReadFile(path); err == nil {
+		return path
 	}
 
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
 	return ""
 }
 

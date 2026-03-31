@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
 	"service1/cmd/service1/config"
 	"service1/cmd/service1/server"
 )
@@ -16,9 +17,11 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	server := server.NewServer(config)
+	s := server.NewServer(config)
 
-	if err := server.Start(); err != nil {
-		log.Fatalf("Server error: %v", err)
+	if err := s.Start(); err != nil {
+		s.Logger.Error("Ошибка запуска сервера",
+			slog.Any("err", err),
+		)
 	}
 }
