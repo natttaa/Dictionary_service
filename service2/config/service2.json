@@ -1,0 +1,14 @@
+{
+  "port": 8083,
+  "log_level": "info",
+  "timeout": 30,
+  "database": {
+    "host": "10.77.44.80",
+    "port": 5433,
+    "user": "student_an",
+    "password": "password",
+    "dbname": "students_pg",
+    "ssl_mode": "disable",
+    "timeout": 10
+  }
+}
