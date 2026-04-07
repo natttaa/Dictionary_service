@@ -1,0 +1,6 @@
+{
+  "translation_server_url": "http://localhost:8081",
+  "timeout": 30,
+  "default_format": "table",
+  "log_level": "info"
+}

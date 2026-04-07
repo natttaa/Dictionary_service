@@ -1,0 +1,6 @@
+{
+  "port": 8081,
+  "log_level": "info",
+  "dictionary_service_url": "http://localhost:8083",
+  "timeout": 10
+}
