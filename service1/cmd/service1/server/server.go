@@ -40,6 +40,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/languages", s.handleLanguages)
 	mux.HandleFunc("/api/v1/topics", s.handleTopics)
+	mux.HandleFunc("/api/v1/topics/words", s.handleTopicWords)
+	mux.HandleFunc("/api/v1/check-translation", s.handleCheckTranslation)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
 

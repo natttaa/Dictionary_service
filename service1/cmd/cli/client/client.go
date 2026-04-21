@@ -218,15 +218,156 @@ func (c *CLIClient) Translate(source, target, word string) error {
 		return fmt.Errorf("%s: %s", translateResp.Error.Code, translateResp.Error.Message)
 	}
 
-	fmt.Printf("Перевод:\n")
-	fmt.Printf("  %s\t%s\n", getLanguageName(source), getLanguageName(target))
-	fmt.Printf("  %s\t%s\n", word, translateResp.Translation)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintf(w, "%s\t%s\n", getLanguageName(source), getLanguageName(target))
+	fmt.Fprintf(w, "%s\t%s\n", strings.Repeat("-", 15), strings.Repeat("-", 15))
+	fmt.Fprintf(w, "%s\t%s\n", word, translateResp.Translation)
+	w.Flush()
 
 	c.logger.Info("Перевод выполнен успешно",
 		slog.String("source", source),
 		slog.String("target", target),
 		slog.String("word", word),
 		slog.String("translation", translateResp.Translation),
+	)
+
+	return nil
+}
+
+// GetTopicWords получает слова по теме для одного или нескольких языков
+func (c *CLIClient) GetTopicWords(topic string, languages []string) error {
+	c.logger.Debug("Запрос слов по теме",
+		slog.String("topic", topic),
+		slog.Any("languages", languages),
+	)
+
+	req := models.TopicWordsRequest{
+		Topic:     topic,
+		Languages: languages,
+	}
+
+	resp, err := c.doRequest("POST", "/api/v1/topics/words", req)
+	if err != nil {
+		return fmt.Errorf("ошибка подключения к серверу: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var topicResp models.TopicWordsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&topicResp); err != nil {
+		return fmt.Errorf("ошибка парсинга ответа: %w", err)
+	}
+
+	if topicResp.Error != nil {
+		return fmt.Errorf("%s: %s", topicResp.Error.Code, topicResp.Error.Message)
+	}
+
+	// Если один язык - выводим списком
+	if len(languages) == 1 {
+		fmt.Printf("Тема: %s\n", topicResp.Topic)
+		fmt.Printf("Язык: %s\n", getLanguageName(languages[0]))
+		fmt.Println(strings.Repeat("-", 30))
+
+		for _, entry := range topicResp.Words {
+			for _, translation := range entry.Translations {
+				fmt.Printf("%s\n", translation)
+			}
+		}
+	} else {
+		// Если несколько языков - выводим таблицей
+		fmt.Printf("Тема: %s\n", topicResp.Topic)
+		fmt.Printf("Языки: ")
+		for i, lang := range languages {
+			if i > 0 {
+				fmt.Print(", ")
+			}
+			fmt.Print(getLanguageName(lang))
+		}
+		fmt.Println()
+		fmt.Println(strings.Repeat("-", 50))
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+
+		// Заголовки
+		headers := make([]string, len(languages))
+		for i, lang := range languages {
+			headers[i] = getLanguageName(lang)
+		}
+		fmt.Fprintln(w, strings.Join(headers, "\t"))
+
+		// Разделитель
+		separator := make([]string, len(languages))
+		for i := range separator {
+			separator[i] = strings.Repeat("-", 15)
+		}
+		fmt.Fprintln(w, strings.Join(separator, "\t"))
+
+		// Данные
+		for _, entry := range topicResp.Words {
+			row := make([]string, len(languages))
+			for i, lang := range languages {
+				if translation, ok := entry.Translations[lang]; ok {
+					row[i] = translation
+				} else {
+					row[i] = "-"
+				}
+			}
+			fmt.Fprintln(w, strings.Join(row, "\t"))
+		}
+		w.Flush()
+	}
+
+	c.logger.Info("Слова по теме получены",
+		slog.String("topic", topicResp.Topic),
+		slog.Int("count", len(topicResp.Words)),
+	)
+
+	return nil
+}
+
+// CheckTranslation проверяет перевод пользователя
+func (c *CLIClient) CheckTranslation(original, translation, sourceLang string) error {
+	c.logger.Debug("Запрос на проверку перевода",
+		slog.String("original", original),
+		slog.String("translation", translation),
+		slog.String("source_lang", sourceLang),
+	)
+
+	req := models.CheckTranslationRequest{
+		Original:    original,
+		Translation: translation,
+		SourceLang:  sourceLang,
+	}
+
+	resp, err := c.doRequest("POST", "/api/v1/check-translation", req)
+	if err != nil {
+		return fmt.Errorf("ошибка подключения к серверу: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var checkResp models.CheckTranslationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&checkResp); err != nil {
+		return fmt.Errorf("ошибка парсинга ответа: %w", err)
+	}
+
+	if checkResp.Error != nil {
+		return fmt.Errorf("%s: %s", checkResp.Error.Code, checkResp.Error.Message)
+	}
+
+	fmt.Printf("Проверка перевода:\n")
+	fmt.Printf("  Исходное слово: %s (%s)\n", original, getLanguageName(sourceLang))
+	fmt.Printf("  Ваш перевод: %s\n", translation)
+	fmt.Printf("  Правильный перевод: %s\n", checkResp.CorrectTranslation)
+
+	if strings.EqualFold(strings.TrimSpace(translation), strings.TrimSpace(checkResp.CorrectTranslation)) {
+		fmt.Println("\n✅ Правильно!")
+	} else {
+		fmt.Println("\n❌ Неправильно")
+	}
+
+	c.logger.Info("Проверка перевода выполнена",
+		slog.String("original", original),
+		slog.String("user_translation", translation),
+		slog.String("correct_translation", checkResp.CorrectTranslation),
 	)
 
 	return nil

@@ -60,11 +60,28 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	// Чтение тела ответа
-	bodyBytes, err = io.ReadAll(resp.Body)
+	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.Logger.Error("Ошибка чтения ответа", slog.Any("error", err))
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка чтения ответа", http.StatusInternalServerError)
 		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		var errorResp models.TranslateResponse
+		if err := json.Unmarshal(respBodyBytes, &errorResp); err == nil && errorResp.Error != nil {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("error_code", errorResp.Error.Code),
+				slog.String("error_message", errorResp.Error.Message),
+			)
+		} else {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("response", string(respBodyBytes)),
+			)
+		}
 	}
 
 	// Копирование заголовков ответа
@@ -77,7 +94,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	// Запись тела ответа
-	if _, err := w.Write(bodyBytes); err != nil {
+	if _, err := w.Write(respBodyBytes); err != nil {
 		s.Logger.Error("Ошибка записи ответа", slog.Any("error", err))
 	}
 }
@@ -113,10 +130,36 @@ func (s *Server) handleLanguages(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Чтение тела ответа
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		var errorResp models.LanguagesResponse
+		if err := json.Unmarshal(respBodyBytes, &errorResp); err == nil && errorResp.Error != nil {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("error_code", errorResp.Error.Code),
+				slog.String("error_message", errorResp.Error.Message),
+			)
+		} else {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("response", string(respBodyBytes)),
+			)
+		}
+	}
+
 	// Перенаправление ответа от словарного сервиса
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
+	if _, err := w.Write(respBodyBytes); err != nil {
 		s.Logger.Error("Ошибка копирования ответа", slog.Any("error", err))
 	}
 }
@@ -148,10 +191,36 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Чтение тела ответа
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		var errorResp models.TopicsResponse
+		if err := json.Unmarshal(respBodyBytes, &errorResp); err == nil && errorResp.Error != nil {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("error_code", errorResp.Error.Code),
+				slog.String("error_message", errorResp.Error.Message),
+			)
+		} else {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("response", string(respBodyBytes)),
+			)
+		}
+	}
+
 	// Перенаправление ответа от словарного сервиса
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	if _, err := io.Copy(w, resp.Body); err != nil {
+	if _, err := w.Write(respBodyBytes); err != nil {
 		s.Logger.Error("Ошибка копирования ответа", slog.Any("error", err))
 	}
 }
@@ -183,9 +252,26 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Чтение тела ответа
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		s.Logger.Warn("Словарный сервис вернул ошибку при проверке здоровья",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("response", string(respBodyBytes)),
+		)
+	}
+
 	// Декодирование ответа от словарного сервиса
 	var dictHealth models.HealthResponse
-	if err := json.NewDecoder(resp.Body).Decode(&dictHealth); err != nil {
+	if err := json.Unmarshal(respBodyBytes, &dictHealth); err != nil {
 		s.Logger.Error("Ошибка декодирования ответа словарного сервиса", slog.Any("error", err))
 		dictHealth.Status = "unknown"
 	}
@@ -199,6 +285,163 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		s.Logger.Error("Ошибка кодирования ответа", slog.Any("error", err))
+	}
+}
+
+// handleTopicWords обрабатывает запросы на получение слов по теме
+func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
+	// Проверка метода
+	if r.Method != http.MethodPost {
+		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Чтение тела запроса
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.Logger.Warn("Ошибка чтения тела запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	// Декодирование запроса
+	var req models.TopicWordsRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		s.Logger.Warn("Ошибка декодирования запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	// Восстановление тела запроса для пересылки
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	s.Logger.Debug("Запрос слов по теме",
+		slog.String("topic", req.Topic),
+		slog.Any("languages", req.Languages),
+	)
+
+	// Перенаправление запроса к словарному сервису
+	resp, err := s.forwardToDictionary(r)
+	if err != nil {
+		s.Logger.Error("Ошибка при обращении к словарному сервису", slog.Any("error", err))
+		s.writeError(w, "SERVICE_UNAVAILABLE", "Словарный сервис недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Чтение тела ответа
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
+		s.writeError(w, "INTERNAL_ERROR", "Ошибка чтения ответа", http.StatusInternalServerError)
+		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		var errorResp models.TopicWordsResponse
+		if err := json.Unmarshal(respBodyBytes, &errorResp); err == nil && errorResp.Error != nil {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("error_code", errorResp.Error.Code),
+				slog.String("error_message", errorResp.Error.Message),
+			)
+		} else {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("response", string(respBodyBytes)),
+			)
+		}
+	}
+
+	// Копирование заголовков и ответа
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	if _, err := w.Write(respBodyBytes); err != nil {
+		s.Logger.Error("Ошибка копирования ответа", slog.Any("error", err))
+	}
+}
+
+// handleCheckTranslation обрабатывает запросы на проверку перевода
+func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) {
+	// Проверка метода
+	if r.Method != http.MethodPost {
+		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Чтение тела запроса
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.Logger.Warn("Ошибка чтения тела запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	// Декодирование запроса
+	var req models.CheckTranslationRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		s.Logger.Warn("Ошибка декодирования запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	// Восстановление тела запроса для пересылки
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	s.Logger.Debug("Запрос на проверку перевода",
+		slog.String("original", req.Original),
+		slog.String("translation", req.Translation),
+		slog.String("source_lang", req.SourceLang),
+	)
+
+	// Перенаправление запроса к словарному сервису
+	resp, err := s.forwardToDictionary(r)
+	if err != nil {
+		s.Logger.Error("Ошибка при обращении к словарному сервису", slog.Any("error", err))
+		s.writeError(w, "SERVICE_UNAVAILABLE", "Словарный сервис недоступен", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Чтение тела ответа
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.Logger.Error("Ошибка чтения ответа от словарного сервиса", slog.Any("error", err))
+		s.writeError(w, "INTERNAL_ERROR", "Ошибка чтения ответа", http.StatusInternalServerError)
+		return
+	}
+
+	// Логируем ошибку от второго сервиса если есть
+	if resp.StatusCode >= 400 {
+		var errorResp models.CheckTranslationResponse
+		if err := json.Unmarshal(respBodyBytes, &errorResp); err == nil && errorResp.Error != nil {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("error_code", errorResp.Error.Code),
+				slog.String("error_message", errorResp.Error.Message),
+			)
+		} else {
+			s.Logger.Warn("Словарный сервис вернул ошибку",
+				slog.Int("status_code", resp.StatusCode),
+				slog.String("response", string(respBodyBytes)),
+			)
+		}
+	}
+
+	// Копирование заголовков и ответа
+	for key, values := range resp.Header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	if _, err := w.Write(respBodyBytes); err != nil {
+		s.Logger.Error("Ошибка копирования ответа", slog.Any("error", err))
 	}
 }
 
