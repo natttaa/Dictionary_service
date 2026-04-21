@@ -73,6 +73,54 @@ func (c *CLIClient) doRequest(method, endpoint string, body interface{}) (*http.
 	return c.client.Do(req)
 }
 
+// Health проверяет состояние сервиса
+func (c *CLIClient) Health() error {
+	c.logger.Debug("Запрос проверки здоровья сервиса")
+
+	resp, err := c.doRequest("GET", "/api/v1/health", nil)
+	if err != nil {
+		return fmt.Errorf("ошибка подключения к серверу: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var healthResp models.HealthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&healthResp); err != nil {
+		return fmt.Errorf("ошибка парсинга ответа: %w", err)
+	}
+
+	// Вывод статуса здоровья
+	fmt.Println("Состояние сервиса:")
+	fmt.Println(strings.Repeat("-", 30))
+
+	// Отображаем статус с иконкой
+	statusIcon := "✅"
+	if healthResp.Status != "healthy" {
+		statusIcon = "❌"
+	}
+	fmt.Printf("%s Статус сервиса: %s\n", statusIcon, healthResp.Status)
+
+	// Отображаем статус словарного сервиса
+	dictIcon := "✅"
+	if healthResp.Service2 != "healthy" && healthResp.Service2 != "available" {
+		dictIcon = "❌"
+	}
+	fmt.Printf("%s Словарный сервис: %s\n", dictIcon, healthResp.Service2)
+
+	// Дополнительная информация о состоянии
+	if healthResp.Status == "healthy" {
+		fmt.Println("\n✨ Сервис работает в штатном режиме")
+	} else {
+		fmt.Println("\n⚠️  Сервис недоступен, проверьте подключение")
+	}
+
+	c.logger.Info("Проверка здоровья выполнена",
+		slog.String("service_status", healthResp.Status),
+		slog.String("dictionary_status", healthResp.Service2),
+	)
+
+	return nil
+}
+
 // ListLanguages выводит список доступных языков
 func (c *CLIClient) ListLanguages() error {
 	c.logger.Debug("Запрос списка языков")

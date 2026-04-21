@@ -18,13 +18,24 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Чтение тела запроса
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.Logger.Warn("Ошибка чтения тела запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
 	// Декодирование запроса
 	var req models.TranslateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		s.Logger.Warn("Ошибка декодирования запроса", slog.Any("error", err))
 		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
 		return
 	}
+
+	// Восстановление тела запроса для пересылки в Service2
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	// Валидация запроса
 	if err := s.validateTranslateRequest(&req); err != nil {
@@ -49,7 +60,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	// Чтение тела ответа
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
 		s.Logger.Error("Ошибка чтения ответа", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка чтения ответа", http.StatusInternalServerError)

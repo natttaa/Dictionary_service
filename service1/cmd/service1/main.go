@@ -26,7 +26,7 @@ func main() {
 
 	s := server.NewServer(config)
 
-	// Запускаем сервер в горутине
+	// Запускаем сервер
 	go func() {
 		if err := s.Start(); err != nil {
 			// http.ErrServerClosed - это не ошибка, а завершение по сигналу остановки
@@ -48,8 +48,8 @@ func main() {
 
 	s.Logger.Info("Получен сигнал завершения, начинаем graceful shutdown")
 
-	// Контекст с таймаутом 30 секунд на завершение всех операций
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Контекст с таймаутом 10 секунд на завершение всех операций
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Останавливаем сервер gracefully

@@ -12,15 +12,25 @@ import (
 // printHelp выводит справку по использованию
 func printHelp() {
 	fmt.Println("Словарно-тренировочный сервис")
+	fmt.Println("\nКоманды:")
+	fmt.Println("  --health              Проверка здоровья сервиса")
+	fmt.Println("  --list-languages      Список языков")
+	fmt.Println("  --list-topics         Список тем")
+	fmt.Println("  --source LANG         Язык оригинала (zh, ru, en)")
+	fmt.Println("  --target LANG         Целевой язык (zh, ru, en)")
+	fmt.Println("  --word WORD           Слово для перевода")
+	fmt.Println("  --config PATH         Путь к файлу конфигурации")
 	fmt.Println("\nПримеры использования:")
-	fmt.Println("  Список языков:")
-	fmt.Println("    go run cli/main.go --list-languages")
+	fmt.Println("  Проверка здоровья:")
+	fmt.Println("    go run cmd/cli/main.go --health")
+	fmt.Println("\n  Список языков:")
+	fmt.Println("    go run cmd/cli/main.go --list-languages")
 	fmt.Println("\n  Список тем:")
-	fmt.Println("    go run cli/main.go --list-topics")
+	fmt.Println("    go run cmd/cli/main.go --list-topics")
 	fmt.Println("\n  Перевод слова:")
-	fmt.Println("    go run cli/main.go --source en --target ru --word \"hello\"")
+	fmt.Println("    go run cmd/cli/main.go --source en --target ru --word \"hello\"")
 	fmt.Println("\n  С конфигом:")
-	fmt.Println("    go run cli/main.go --config configs/cli.json --list-languages")
+	fmt.Println("    go run cmd/cli/main.go --config configs/cli.json --list-languages")
 }
 
 func main() {
@@ -31,6 +41,7 @@ func main() {
 	word := flag.String("word", "", "Слово для перевода")
 	listLanguages := flag.Bool("list-languages", false, "Список языков")
 	listTopics := flag.Bool("list-topics", false, "Список тем")
+	health := flag.Bool("health", false, "Проверка здоровья сервиса") // НОВЫЙ ФЛАГ
 
 	flag.Parse()
 
@@ -51,19 +62,26 @@ func main() {
 	)
 
 	// Создание клиента
-	client := client.NewCLIClient(config.ServerURL, config.Timeout, logger)
+	cliClient := client.NewCLIClient(config.ServerURL, config.Timeout, logger)
 
 	// Обработка команд
 	switch {
+	case *health: // НОВАЯ КОМАНДА
+		if err := cliClient.Health(); err != nil {
+			logger.Error("Ошибка при проверке здоровья", slog.Any("error", err))
+			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
+			os.Exit(1)
+		}
+
 	case *listLanguages:
-		if err := client.ListLanguages(); err != nil {
+		if err := cliClient.ListLanguages(); err != nil {
 			logger.Error("Ошибка при получении списка языков", slog.Any("error", err))
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)
 		}
 
 	case *listTopics:
-		if err := client.ListTopics(); err != nil {
+		if err := cliClient.ListTopics(); err != nil {
 			logger.Error("Ошибка при получении списка тем", slog.Any("error", err))
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)
@@ -75,7 +93,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Ошибка: для перевода укажите --source и --target")
 			os.Exit(1)
 		}
-		if err := client.Translate(*source, *target, *word); err != nil {
+		if err := cliClient.Translate(*source, *target, *word); err != nil {
 			logger.Error("Ошибка при переводе", slog.Any("error", err))
 			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 			os.Exit(1)
