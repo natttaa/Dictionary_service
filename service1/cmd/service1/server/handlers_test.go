@@ -541,3 +541,358 @@ func TestValidateTranslateRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleTopicWords(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		requestBody    interface{}
+		dictionaryMock func() *httptest.Server
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:   "successful topic words - single language",
+			method: http.MethodPost,
+			requestBody: models.TopicWordsRequest{
+				Topic:     "animals",
+				Languages: []string{"ru"},
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "/api/v1/topics/words", r.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode(models.TopicWordsResponse{
+						Topic: "animals",
+						Words: []models.WordEntry{
+							{Translations: map[string]string{"ru": "собака"}},
+							{Translations: map[string]string{"ru": "кошка"}},
+						},
+					})
+				}))
+			},
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:   "successful topic words - multiple languages",
+			method: http.MethodPost,
+			requestBody: models.TopicWordsRequest{
+				Topic:     "animals",
+				Languages: []string{"ru", "en"},
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "/api/v1/topics/words", r.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode(models.TopicWordsResponse{
+						Topic: "animals",
+						Words: []models.WordEntry{
+							{Translations: map[string]string{"ru": "собака", "en": "dog"}},
+							{Translations: map[string]string{"ru": "кошка", "en": "cat"}},
+						},
+					})
+				}))
+			},
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:        "invalid json - empty body",
+			method:      http.MethodPost,
+			requestBody: "",
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "INVALID_JSON",
+		},
+		{
+			name:   "wrong method",
+			method: http.MethodGet,
+			requestBody: models.TopicWordsRequest{
+				Topic:     "animals",
+				Languages: []string{"ru"},
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			},
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedError:  "METHOD_NOT_ALLOWED",
+		},
+		{
+			name:   "dictionary service unavailable",
+			method: http.MethodPost,
+			requestBody: models.TopicWordsRequest{
+				Topic:     "animals",
+				Languages: []string{"ru"},
+			},
+			dictionaryMock: func() *httptest.Server {
+				return nil
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedError:  "SERVICE_UNAVAILABLE",
+		},
+		{
+			name:   "dictionary service returns error",
+			method: http.MethodPost,
+			requestBody: models.TopicWordsRequest{
+				Topic:     "nonexistent",
+				Languages: []string{"ru"},
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					json.NewEncoder(w).Encode(models.TopicWordsResponse{
+						Error: &models.Error{
+							Code:    "TOPIC_NOT_FOUND",
+							Message: "Тема не найдена",
+						},
+					})
+				}))
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedError:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dictServer *httptest.Server
+			if tt.dictionaryMock != nil {
+				dictServer = tt.dictionaryMock()
+				if dictServer != nil {
+					defer dictServer.Close()
+				}
+			}
+
+			cfg := config.DefaultConfig()
+			if dictServer != nil {
+				cfg.DictionaryServiceURL = dictServer.URL
+			} else {
+				cfg.DictionaryServiceURL = "http://unavailable:8083"
+			}
+			cfg.Timeout = 1 * time.Second
+
+			s := NewServer(cfg)
+
+			var bodyBytes []byte
+			var err error
+
+			switch v := tt.requestBody.(type) {
+			case string:
+				bodyBytes = []byte(v)
+			case models.TopicWordsRequest:
+				bodyBytes, err = json.Marshal(v)
+				require.NoError(t, err)
+			default:
+				bodyBytes, err = json.Marshal(v)
+				require.NoError(t, err)
+			}
+
+			req := httptest.NewRequest(tt.method, "/api/v1/topics/words", bytes.NewReader(bodyBytes))
+			w := httptest.NewRecorder()
+
+			require.NotPanics(t, func() {
+				s.handleTopicWords(w, req)
+			})
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectedError != "" {
+				var response models.TopicWordsResponse
+				err := json.NewDecoder(w.Body).Decode(&response)
+				require.NoError(t, err)
+				assert.NotNil(t, response.Error)
+				assert.Equal(t, tt.expectedError, response.Error.Code)
+			}
+
+			// Проверяем что ответ валидный если статус OK
+			if tt.expectedStatus == http.StatusOK {
+				var response models.TopicWordsResponse
+				err := json.NewDecoder(w.Body).Decode(&response)
+				require.NoError(t, err)
+				assert.Equal(t, "animals", response.Topic)
+				assert.NotEmpty(t, response.Words)
+			}
+		})
+	}
+}
+
+func TestHandleCheckTranslation(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		requestBody    interface{}
+		dictionaryMock func() *httptest.Server
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:   "successful check - correct translation",
+			method: http.MethodPost,
+			requestBody: models.CheckTranslationRequest{
+				Original:    "собака",
+				Translation: "dog",
+				SourceLang:  "ru",
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "/api/v1/check-translation", r.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode(models.CheckTranslationResponse{
+						CorrectTranslation: "dog",
+					})
+				}))
+			},
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:   "successful check - incorrect translation",
+			method: http.MethodPost,
+			requestBody: models.CheckTranslationRequest{
+				Original:    "собака",
+				Translation: "cat",
+				SourceLang:  "ru",
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode(models.CheckTranslationResponse{
+						CorrectTranslation: "dog",
+					})
+				}))
+			},
+			expectedStatus: http.StatusOK,
+			expectedError:  "",
+		},
+		{
+			name:        "invalid json - empty body",
+			method:      http.MethodPost,
+			requestBody: "",
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "INVALID_JSON",
+		},
+		{
+			name:   "wrong method",
+			method: http.MethodGet,
+			requestBody: models.CheckTranslationRequest{
+				Original:    "собака",
+				Translation: "dog",
+				SourceLang:  "ru",
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+			},
+			expectedStatus: http.StatusMethodNotAllowed,
+			expectedError:  "METHOD_NOT_ALLOWED",
+		},
+		{
+			name:   "dictionary service unavailable",
+			method: http.MethodPost,
+			requestBody: models.CheckTranslationRequest{
+				Original:    "собака",
+				Translation: "dog",
+				SourceLang:  "ru",
+			},
+			dictionaryMock: func() *httptest.Server {
+				return nil
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedError:  "SERVICE_UNAVAILABLE",
+		},
+		{
+			name:   "dictionary service returns error - word not found",
+			method: http.MethodPost,
+			requestBody: models.CheckTranslationRequest{
+				Original:    "несуществующееслово",
+				Translation: "something",
+				SourceLang:  "ru",
+			},
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					json.NewEncoder(w).Encode(models.CheckTranslationResponse{
+						Error: &models.Error{
+							Code:    "WORD_NOT_FOUND",
+							Message: "Слово не найдено",
+						},
+					})
+				}))
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedError:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dictServer *httptest.Server
+			if tt.dictionaryMock != nil {
+				dictServer = tt.dictionaryMock()
+				if dictServer != nil {
+					defer dictServer.Close()
+				}
+			}
+
+			cfg := config.DefaultConfig()
+			if dictServer != nil {
+				cfg.DictionaryServiceURL = dictServer.URL
+			} else {
+				cfg.DictionaryServiceURL = "http://unavailable:8083"
+			}
+			cfg.Timeout = 1 * time.Second
+
+			s := NewServer(cfg)
+
+			var bodyBytes []byte
+			var err error
+
+			switch v := tt.requestBody.(type) {
+			case string:
+				bodyBytes = []byte(v)
+			case models.CheckTranslationRequest:
+				bodyBytes, err = json.Marshal(v)
+				require.NoError(t, err)
+			default:
+				bodyBytes, err = json.Marshal(v)
+				require.NoError(t, err)
+			}
+
+			req := httptest.NewRequest(tt.method, "/api/v1/check-translation", bytes.NewReader(bodyBytes))
+			w := httptest.NewRecorder()
+
+			require.NotPanics(t, func() {
+				s.handleCheckTranslation(w, req)
+			})
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectedError != "" {
+				var response models.CheckTranslationResponse
+				err := json.NewDecoder(w.Body).Decode(&response)
+				require.NoError(t, err)
+				assert.NotNil(t, response.Error)
+				assert.Equal(t, tt.expectedError, response.Error.Code)
+			}
+
+			// Проверяем что ответ валидный если статус OK
+			if tt.expectedStatus == http.StatusOK {
+				var response models.CheckTranslationResponse
+				err := json.NewDecoder(w.Body).Decode(&response)
+				require.NoError(t, err)
+				assert.NotEmpty(t, response.CorrectTranslation)
+			}
+		})
+	}
+}
