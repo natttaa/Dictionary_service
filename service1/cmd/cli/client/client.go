@@ -92,25 +92,17 @@ func (c *CLIClient) Health() error {
 	fmt.Println("Состояние сервиса:")
 	fmt.Println(strings.Repeat("-", 30))
 
-	// Отображаем статус с иконкой
-	statusIcon := "✅"
-	if healthResp.Status != "healthy" {
-		statusIcon = "❌"
-	}
-	fmt.Printf("%s Статус сервиса: %s\n", statusIcon, healthResp.Status)
+	fmt.Printf("Статус сервиса: %s\n", healthResp.Status)
 
 	// Отображаем статус словарного сервиса
-	dictIcon := "✅"
-	if healthResp.Service2 != "healthy" && healthResp.Service2 != "available" {
-		dictIcon = "❌"
-	}
-	fmt.Printf("%s Словарный сервис: %s\n", dictIcon, healthResp.Service2)
+
+	fmt.Printf("Словарный сервис: %s\n", healthResp.Service2)
 
 	// Дополнительная информация о состоянии
 	if healthResp.Status == "healthy" {
-		fmt.Println("\n✨ Сервис работает в штатном режиме")
+		fmt.Println("\nСервис работает в штатном режиме")
 	} else {
-		fmt.Println("\n⚠️  Сервис недоступен, проверьте подключение")
+		fmt.Println("\nСервис недоступен, проверьте подключение")
 	}
 
 	c.logger.Info("Проверка здоровья выполнена",
