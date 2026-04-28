@@ -64,12 +64,6 @@ func LoadConfig(configPath string) (*Config, error) {
 func findConfigFile() string {
 	paths := []string{
 		"config/service2.json",
-		//"config/testdata/valid_config.json",
-		//"config/testdata/debug_config.json",
-		//"config/testdata/invalid_port.json",
-		//"config/testdata/invalid_db_port.json",
-		//"config/testdata/invalid_log_level.json",
-		//"config/testdata/malformed.json",
 	}
 
 	for _, path := range paths {
