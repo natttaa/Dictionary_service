@@ -105,7 +105,7 @@ func (c *CLIClient) Health() error {
 		fmt.Println("\nСервис недоступен, проверьте подключение")
 	}
 
-	c.logger.Info("Проверка здоровья выполнена",
+	c.logger.Debug("Проверка здоровья выполнена",
 		slog.String("service_status", healthResp.Status),
 		slog.String("dictionary_status", healthResp.Service2),
 	)
@@ -142,7 +142,7 @@ func (c *CLIClient) ListLanguages() error {
 	}
 	w.Flush()
 
-	c.logger.Info("Список языков успешно получен", slog.Int("count", len(langsResp.Languages)))
+	c.logger.Debug("Список языков успешно получен", slog.Int("count", len(langsResp.Languages)))
 
 	return nil
 }
@@ -176,7 +176,7 @@ func (c *CLIClient) ListTopics() error {
 	}
 	w.Flush()
 
-	c.logger.Info("Список тем успешно получен", slog.Int("count", len(topicsResp.Topics)))
+	c.logger.Debug("Список тем успешно получен", slog.Int("count", len(topicsResp.Topics)))
 
 	return nil
 }
@@ -216,7 +216,7 @@ func (c *CLIClient) Translate(source, target, word string) error {
 	fmt.Fprintf(w, "%s\t%s\n", word, translateResp.Translation)
 	w.Flush()
 
-	c.logger.Info("Перевод выполнен успешно",
+	c.logger.Debug("Перевод выполнен успешно",
 		slog.String("source", source),
 		slog.String("target", target),
 		slog.String("word", word),
@@ -308,7 +308,7 @@ func (c *CLIClient) GetTopicWords(topic string, languages []string) error {
 		w.Flush()
 	}
 
-	c.logger.Info("Слова по теме получены",
+	c.logger.Debug("Слова по теме получены",
 		slog.String("topic", topicResp.Topic),
 		slog.Int("count", len(topicResp.Words)),
 	)
@@ -317,15 +317,15 @@ func (c *CLIClient) GetTopicWords(topic string, languages []string) error {
 }
 
 // CheckTranslation проверяет перевод пользователя
-func (c *CLIClient) CheckTranslation(original, translation, sourceLang string) error {
+func (c *CLIClient) CheckTranslation(word, translation, sourceLang string) error {
 	c.logger.Debug("Запрос на проверку перевода",
-		slog.String("original", original),
+		slog.String("word", word),
 		slog.String("translation", translation),
 		slog.String("source_lang", sourceLang),
 	)
 
 	req := models.CheckTranslationRequest{
-		Original:    original,
+		Word:        word,
 		Translation: translation,
 		SourceLang:  sourceLang,
 	}
@@ -346,18 +346,18 @@ func (c *CLIClient) CheckTranslation(original, translation, sourceLang string) e
 	}
 
 	fmt.Printf("Проверка перевода:\n")
-	fmt.Printf("  Исходное слово: %s (%s)\n", original, getLanguageName(sourceLang))
+	fmt.Printf("  Исходное слово: %s (%s)\n", word, getLanguageName(sourceLang))
 	fmt.Printf("  Ваш перевод: %s\n", translation)
 	fmt.Printf("  Правильный перевод: %s\n", checkResp.CorrectTranslation)
 
 	if strings.EqualFold(strings.TrimSpace(translation), strings.TrimSpace(checkResp.CorrectTranslation)) {
-		fmt.Println("\n✅ Правильно!")
+		fmt.Println("\nПравильно!")
 	} else {
-		fmt.Println("\n❌ Неправильно")
+		fmt.Println("\nНеправильно!")
 	}
 
-	c.logger.Info("Проверка перевода выполнена",
-		slog.String("original", original),
+	c.logger.Debug("Проверка перевода выполнена",
+		slog.String("word", word),
 		slog.String("user_translation", translation),
 		slog.String("correct_translation", checkResp.CorrectTranslation),
 	)

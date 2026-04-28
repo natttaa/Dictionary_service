@@ -735,7 +735,7 @@ func TestHandleCheckTranslation(t *testing.T) {
 			name:   "successful check - correct translation",
 			method: http.MethodPost,
 			requestBody: models.CheckTranslationRequest{
-				Original:    "собака",
+				Word:        "собака",
 				Translation: "dog",
 				SourceLang:  "ru",
 			},
@@ -756,7 +756,7 @@ func TestHandleCheckTranslation(t *testing.T) {
 			name:   "successful check - incorrect translation",
 			method: http.MethodPost,
 			requestBody: models.CheckTranslationRequest{
-				Original:    "собака",
+				Word:        "собака",
 				Translation: "cat",
 				SourceLang:  "ru",
 			},
@@ -786,7 +786,7 @@ func TestHandleCheckTranslation(t *testing.T) {
 			name:   "wrong method",
 			method: http.MethodGet,
 			requestBody: models.CheckTranslationRequest{
-				Original:    "собака",
+				Word:        "собака",
 				Translation: "dog",
 				SourceLang:  "ru",
 			},
@@ -800,7 +800,7 @@ func TestHandleCheckTranslation(t *testing.T) {
 			name:   "dictionary service unavailable",
 			method: http.MethodPost,
 			requestBody: models.CheckTranslationRequest{
-				Original:    "собака",
+				Word:        "собака",
 				Translation: "dog",
 				SourceLang:  "ru",
 			},
@@ -814,7 +814,7 @@ func TestHandleCheckTranslation(t *testing.T) {
 			name:   "dictionary service returns error - word not found",
 			method: http.MethodPost,
 			requestBody: models.CheckTranslationRequest{
-				Original:    "несуществующееслово",
+				Word:        "несуществующееслово",
 				Translation: "something",
 				SourceLang:  "ru",
 			},

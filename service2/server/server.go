@@ -99,21 +99,29 @@ func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// statusRecorder оборачивает http.ResponseWriter, чтобы захватить statusCode для лога.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (sr *statusRecorder) WriteHeader(code int) {
+	sr.status = code
+	sr.ResponseWriter.WriteHeader(code)
+}
+
 // loggerMiddleware middleware для логирования всех входящих запросов
 func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
-		s.logger.Info("Входящий запрос",
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
-		)
-
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(rec, r)
 
 		s.logger.Info("Запрос обработан",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
+			slog.Int("status", rec.status),
 			slog.Duration("duration", time.Since(start)),
 		)
 	})

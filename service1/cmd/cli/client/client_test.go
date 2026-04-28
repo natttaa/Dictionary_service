@@ -386,7 +386,7 @@ func TestGetTopicWords(t *testing.T) {
 func TestCheckTranslation(t *testing.T) {
 	tests := []struct {
 		name           string
-		original       string
+		word           string
 		translation    string
 		sourceLang     string
 		serverResponse func(w http.ResponseWriter, r *http.Request)
@@ -394,7 +394,7 @@ func TestCheckTranslation(t *testing.T) {
 	}{
 		{
 			name:        "correct translation",
-			original:    "собака",
+			word:        "собака",
 			translation: "dog",
 			sourceLang:  "ru",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +404,7 @@ func TestCheckTranslation(t *testing.T) {
 				var req models.CheckTranslationRequest
 				err := json.NewDecoder(r.Body).Decode(&req)
 				require.NoError(t, err)
-				assert.Equal(t, "собака", req.Original)
+				assert.Equal(t, "собака", req.Word)
 				assert.Equal(t, "dog", req.Translation)
 				assert.Equal(t, "ru", req.SourceLang)
 
@@ -418,7 +418,7 @@ func TestCheckTranslation(t *testing.T) {
 		},
 		{
 			name:        "incorrect translation",
-			original:    "собака",
+			word:        "собака",
 			translation: "cat",
 			sourceLang:  "ru",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -432,7 +432,7 @@ func TestCheckTranslation(t *testing.T) {
 		},
 		{
 			name:        "word not found",
-			original:    "несуществующее",
+			word:        "несуществующее",
 			translation: "something",
 			sourceLang:  "ru",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -458,7 +458,7 @@ func TestCheckTranslation(t *testing.T) {
 			client := NewCLIClient(server.URL, 5*time.Second, logger)
 
 			captureOutput(func() {
-				err := client.CheckTranslation(tt.original, tt.translation, tt.sourceLang)
+				err := client.CheckTranslation(tt.word, tt.translation, tt.sourceLang)
 				if tt.expectError {
 					assert.Error(t, err)
 				} else {

@@ -57,20 +57,23 @@ go run cmd/service1/main.go
 # Перевод слова
 go run cmd/cli/main.go --source zh --target ru --word "zha3o"
 
-# Слова по теме на одном языке
-go run cmd/cli/main.go --topic animals --language ru
-
-# Слова по теме на нескольких языках
-go run cmd/cli/main.go --topic animals --languages ru,en,zh
-
 # Проверка перевода
-go run cmd/cli/main.go --check --original "искать" --translation "zha3o" --lang ru
+go run cmd/cli/main.go --check --word "искать" --translation "zha3o" --language ru
+
+# Слова по теме на одном языке (тема обязательно на русском)
+go run cmd/cli/main.go --topic животные --languages ru
+
+# Слова по теме на нескольких языках (тема обязательно на русском)
+go run cmd/cli/main.go --topic животные --languages ru,en,zh
 
 # Список языков
 go run cmd/cli/main.go --list-languages
 
 # Список тем
 go run cmd/cli/main.go --list-topics
+
+# Проверка здоровья сервисов
+go run cmd/cli/main.go --health
 ```
 
 ## Команды CLI
@@ -87,9 +90,9 @@ go run cmd/cli/main.go --list-topics
 | `--language` | Один язык | `--language ru` |
 | `--languages` | Несколько языков (через запятую) | `--languages ru,en,zh` |
 | `--check` | Режим проверки | `--check` |
-| `--original` | Исходное слово | `--original "искать"` |
+| `--word` | Исходное слово | `--word "искать"` |
 | `--translation` | Перевод пользователя | `--translation "zha3o"` |
-| `--lang` | Язык оригинала (для проверки) | `--lang ru` |
+| `--language` | Язык оригинала (для проверки) | `--language ru` |
 | `--format` | Формат вывода (table/json) | `--format json` |
 | `--list-languages` | Список языков | `--list-languages` |
 | `--list-topics` | Список тем | `--list-topics` |
@@ -107,7 +110,7 @@ go run cmd/cli/main.go --topic animals --languages ru,en,zh --format table
 go run cmd/cli/main.go --topic food --languages ru,en --format json
 
 # Проверка перевода
-go run cmd/cli/main.go --check --original "собака" --translation "dog" --lang ru
+go run cmd/cli/main.go --check --word "собака" --translation "dog" --language ru
 ```
 
 

@@ -39,15 +39,18 @@ type WordEntry struct {
 
 // CheckTranslationRequest - запрос на проверку перевода
 type CheckTranslationRequest struct {
-	Original    string `json:"original"`
+	Word        string `json:"word"`
 	Translation string `json:"translation"`
 	SourceLang  string `json:"source_lang"`
 }
 
 // CheckTranslationResponse - ответ на проверку перевода.
-// Translations содержит правильные переводы на все языки, кроме исходного.
-// Например, для source_lang=ru вернёт {"en": "Dog", "zh": "狗"}.
+// Translation — один правильный перевод (на языке введённого пользователем варианта,
+// определяемом эвристикой; если пользовательский ввод совпадает с одной из ячеек БД,
+// возвращается именно она). Поле читается клиентами вроде CLI service1.
+// Translations — все переводы, кроме source-языка, для альтернативных клиентов.
 type CheckTranslationResponse struct {
+	Translation  string            `json:"translation,omitempty"`
 	Translations map[string]string `json:"translations,omitempty"`
 	Error        *Error            `json:"error,omitempty"`
 }

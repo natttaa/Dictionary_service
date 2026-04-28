@@ -39,7 +39,7 @@ type WordEntry struct {
 
 // CheckTranslationRequest - запрос на проверку перевода
 type CheckTranslationRequest struct {
-	Original    string `json:"original"`
+	Word        string `json:"word"`
 	Translation string `json:"translation"`
 	SourceLang  string `json:"source_lang"`
 }

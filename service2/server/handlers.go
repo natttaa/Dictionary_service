@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/jackc/pgx/v4"
 )
@@ -38,7 +39,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.logger.Debug("Запрос на перевод",
+	s.logger.Info("Перевод:",
 		slog.String("source_lang", req.SourceLang),
 		slog.String("target_lang", req.TargetLang),
 		slog.String("word", req.Word),
@@ -54,9 +55,13 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	err := s.db.QueryRow(r.Context(), query, req.Word).Scan(&translation)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("Слово не найдено в словаре",
+				slog.String("word", req.Word),
+				slog.String("source_lang", req.SourceLang),
+			)
 			s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
 		} else {
-			s.logger.Warn("Ошибка запроса перевода",
+			s.logger.Error("Ошибка запроса перевода",
 				slog.String("word", req.Word),
 				slog.Any("error", err),
 			)
@@ -64,6 +69,11 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	s.logger.Info("Перевод: ",
+		slog.String("word", req.Word),
+		slog.String("translation", translation),
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -224,7 +234,7 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 
 // handleCheckTranslation проверяет правильность перевода пользователя
 // POST /api/v1/check-translation
-// Принимает: {"original": "Собака", "translation": "Dog", "source_lang": "ru"}
+// Принимает: {"word": "Собака", "translation": "Dog", "source_lang": "ru"}
 // Возвращает: {"translations": {"en": "Dog", "zh": "狗"}}
 func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -239,8 +249,8 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.Original == "" || req.SourceLang == "" {
-		s.writeError(w, "MISSING_PARAMS", "Поля original и source_lang обязательны", http.StatusBadRequest)
+	if req.Word == "" || req.SourceLang == "" {
+		s.writeError(w, "MISSING_PARAMS", "Поля word и source_lang обязательны", http.StatusBadRequest)
 		return
 	}
 
@@ -249,8 +259,9 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	s.logger.Debug("Запрос на проверку перевода",
-		slog.String("original", req.Original),
+	s.logger.Info("Проверка перевода: payload",
+		slog.String("word", req.Word),
+		slog.String("user_translation", req.Translation),
 		slog.String("source_lang", req.SourceLang),
 	)
 
@@ -270,19 +281,23 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 	query := `SELECT ` + strings.Join(targetCols, ", ") +
 		` FROM dictionary.dictionary_table WHERE LOWER(` + sourceCol + `) = LOWER($1)`
 
-	vals := make([]any, len(targetLangs))
+	strs := make([]string, len(targetLangs))
 	ptrs := make([]any, len(targetLangs))
 	for i := range ptrs {
-		ptrs[i] = &vals[i]
+		ptrs[i] = &strs[i]
 	}
 
-	err := s.db.QueryRow(r.Context(), query, req.Original).Scan(ptrs...)
+	err := s.db.QueryRow(r.Context(), query, req.Word).Scan(ptrs...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("Слово не найдено в словаре",
+				slog.String("word", req.Word),
+				slog.String("source_lang", req.SourceLang),
+			)
 			s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
 		} else {
-			s.logger.Warn("Ошибка запроса проверки перевода",
-				slog.String("word", req.Original),
+			s.logger.Error("Ошибка запроса проверки перевода",
+				slog.String("word", req.Word),
 				slog.Any("error", err),
 			)
 			s.writeError(w, "INTERNAL_ERROR", "Ошибка проверки перевода", http.StatusInternalServerError)
@@ -292,16 +307,63 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 
 	translations := make(map[string]string, len(targetLangs))
 	for i, lang := range targetLangs {
-		if s, ok := vals[i].(string); ok {
-			translations[lang] = s
-		}
+		translations[lang] = strs[i]
 	}
+
+	correct := pickCorrectTranslation(req.Translation, translations)
+
+	s.logger.Info("Проверка перевода: результат",
+		slog.String("word", req.Word),
+		slog.String("user_translation", req.Translation),
+		slog.String("correct_translation", correct),
+		slog.Any("translations", translations),
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(models.CheckTranslationResponse{
+		Translation:  correct,
 		Translations: translations,
 	})
+}
+
+// pickCorrectTranslation выбирает строку правильного перевода для ответа.
+// 1) Если ввод пользователя совпадает (без учёта регистра/пробелов) с одним из переводов — возвращаем именно его.
+// 2) Иначе определяем язык ввода эвристикой по символам (кириллица→ru, ханьцзы→zh, латиница→en) и берём перевод на этом языке.
+// 3) Иначе — первый доступный перевод (детерминированно: en, zh, ru).
+func pickCorrectTranslation(userTranslation string, translations map[string]string) string {
+	user := strings.TrimSpace(userTranslation)
+	for _, v := range translations {
+		if strings.EqualFold(strings.TrimSpace(v), user) {
+			return v
+		}
+	}
+	if lang := detectLang(user); lang != "" {
+		if v, ok := translations[lang]; ok && v != "" {
+			return v
+		}
+	}
+	for _, lang := range []string{"en", "zh", "ru"} {
+		if v, ok := translations[lang]; ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// detectLang определяет язык строки по диапазонам Unicode. Возвращает "" если не распознан.
+func detectLang(s string) string {
+	for _, r := range s {
+		switch {
+		case unicode.Is(unicode.Han, r):
+			return "zh"
+		case unicode.Is(unicode.Cyrillic, r):
+			return "ru"
+		case unicode.Is(unicode.Latin, r):
+			return "en"
+		}
+	}
+	return ""
 }
 
 // handleHealth проверяет состояние сервиса и соединения с БД

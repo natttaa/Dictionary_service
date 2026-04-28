@@ -394,7 +394,7 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	s.Logger.Debug("Запрос на проверку перевода",
-		slog.String("original", req.Original),
+		slog.String("word", req.Word),
 		slog.String("translation", req.Translation),
 		slog.String("source_lang", req.SourceLang),
 	)
