@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-// =============================================================================
-// Тесты LoadConfig
-// =============================================================================
-
 // TestLoadConfig_ValidFile проверяет загрузку корректного конфига
 func TestLoadConfig_ValidFile(t *testing.T) {
 	cfg, err := LoadConfig("testdata/valid_config.json")
@@ -105,10 +101,6 @@ func TestLoadConfig_EmptyPath_ReturnsDefault(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// Тесты validateConfig
-// =============================================================================
-
 // TestValidateConfig_InvalidPort проверяет отклонение невалидного порта сервера
 func TestValidateConfig_InvalidPort(t *testing.T) {
 	_, err := LoadConfig("testdata/invalid_port.json")
@@ -183,10 +175,6 @@ func TestValidateConfig_PortBoundaries(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// Тесты DefaultConfig
-// =============================================================================
-
 // TestDefaultConfig проверяет дефолтные значения конфига
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
@@ -201,10 +189,6 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("дефолтный LogLevel: ожидали 'info', получили '%s'", cfg.LogLevel)
 	}
 }
-
-// =============================================================================
-// Тесты SetupLogger
-// =============================================================================
 
 // TestSetupLogger_ReturnsLogger проверяет, что SetupLogger возвращает не-nil логгер
 func TestSetupLogger_ReturnsLogger(t *testing.T) {

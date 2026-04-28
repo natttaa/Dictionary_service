@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Server представляет основной сервер приложения
@@ -85,7 +85,7 @@ func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Data.Timeout)
 	defer cancel()
 
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	pool, err := pgxpool.ConnectConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания пула соединений: %w", err)
 	}
