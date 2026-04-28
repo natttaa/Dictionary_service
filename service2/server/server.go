@@ -44,6 +44,8 @@ func (s *Server) Start(cfg *config.Config) error {
 	mux.HandleFunc("/api/v1/health", s.handleHealth)
 	mux.HandleFunc("/api/v1/languages", s.handleLanguages)
 	mux.HandleFunc("/api/v1/topics", s.handleTopics)
+	mux.HandleFunc("/api/v1/topics/words", s.handleTopicWords)
+	mux.HandleFunc("/api/v1/check-translation", s.handleCheckTranslation)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
 	s.logger.Info("Запуск сервера",
@@ -77,7 +79,6 @@ func (s *Server) connectToDatabase(cfg *config.Config) (*sql.DB, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	// Проверяем соединение
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("БД не отвечает: %w", err)

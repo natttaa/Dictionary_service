@@ -44,10 +44,12 @@ type CheckTranslationRequest struct {
 	SourceLang  string `json:"source_lang"`
 }
 
-// CheckTranslationResponse - ответ на проверку перевода
+// CheckTranslationResponse - ответ на проверку перевода.
+// Translations содержит правильные переводы на все языки, кроме исходного.
+// Например, для source_lang=ru вернёт {"en": "Dog", "zh": "狗"}.
 type CheckTranslationResponse struct {
-	CorrectTranslation string `json:"translation,omitempty"`
-	Error              *Error `json:"error,omitempty"`
+	Translations map[string]string `json:"translations,omitempty"`
+	Error        *Error            `json:"error,omitempty"`
 }
 
 // LanguagesResponse - ответ со списком языков

@@ -1,0 +1,14 @@
+{
+  "port": 9090,
+  "log_level": "debug",
+  "timeout": 15,
+  "database": {
+    "host": "db.example.com",
+    "port": 5433,
+    "user": "admin",
+    "password": "secret",
+    "dbname": "mydb",
+    "ssl_mode": "require",
+    "timeout": 5
+  }
+}

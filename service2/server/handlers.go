@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 // handleTranslate обрабатывает запросы на перевод слова
@@ -24,13 +25,11 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация полей
 	if req.SourceLang == "" || req.TargetLang == "" || req.Word == "" {
 		s.writeError(w, "MISSING_PARAMS", "Поля source_lang, target_lang и word обязательны", http.StatusBadRequest)
 		return
 	}
 
-	// Проверяем, что языки поддерживаются
 	if !isValidLang(req.SourceLang) || !isValidLang(req.TargetLang) {
 		s.writeError(w, "UNSUPPORTED_LANG", "Поддерживаются языки: ru, en, zh", http.StatusBadRequest)
 		return
@@ -120,6 +119,161 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(models.TopicsResponse{Topics: topics})
+}
+
+// handleTopicWords возвращает слова по теме для указанных языков
+// POST /api/v1/topics/words
+// Принимает: {"topic": "animals", "languages": ["ru", "en"]}
+// Возвращает: {"topic": "animals", "words": [{"translations": {"ru": "Собака", "en": "Dog"}}]}
+func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req models.TopicWordsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Warn("Ошибка декодирования запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	if req.Topic == "" || len(req.Languages) == 0 {
+		s.writeError(w, "MISSING_PARAMS", "Поля topic и languages обязательны", http.StatusBadRequest)
+		return
+	}
+
+	for _, lang := range req.Languages {
+		if !isValidLang(lang) {
+			s.writeError(w, "UNSUPPORTED_LANG", "Поддерживаются языки: ru, en, zh", http.StatusBadRequest)
+			return
+		}
+	}
+
+	s.logger.Debug("Запрос слов по теме",
+		slog.String("topic", req.Topic),
+		slog.Any("languages", req.Languages),
+	)
+
+	// Формируем список колонок из whitelist — SQL-инъекция невозможна
+	cols := make([]string, len(req.Languages))
+	for i, lang := range req.Languages {
+		cols[i] = langToColumn(lang)
+	}
+
+	query := `SELECT ` + strings.Join(cols, ", ") +
+		` FROM dictionary.dictionary_table WHERE LOWER(category) = LOWER($1) ORDER BY ` + cols[0]
+
+	rows, err := s.db.Query(query, req.Topic)
+	if err != nil {
+		s.logger.Error("Ошибка запроса слов по теме", slog.Any("error", err))
+		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения слов по теме", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var words []models.WordEntry
+	for rows.Next() {
+		vals := make([]string, len(req.Languages))
+		ptrs := make([]interface{}, len(req.Languages))
+		for i := range ptrs {
+			ptrs[i] = &vals[i]
+		}
+
+		if err := rows.Scan(ptrs...); err != nil {
+			s.logger.Error("Ошибка сканирования строки", slog.Any("error", err))
+			continue
+		}
+
+		translations := make(map[string]string, len(req.Languages))
+		for i, lang := range req.Languages {
+			translations[lang] = vals[i]
+		}
+
+		words = append(words, models.WordEntry{Translations: translations})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(models.TopicWordsResponse{
+		Topic: req.Topic,
+		Words: words,
+	})
+}
+
+// handleCheckTranslation проверяет правильность перевода пользователя
+// POST /api/v1/check-translation
+// Принимает: {"original": "Собака", "translation": "Dog", "source_lang": "ru"}
+// Возвращает: {"translations": {"en": "Dog", "zh": "狗"}}
+func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req models.CheckTranslationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Warn("Ошибка декодирования запроса", slog.Any("error", err))
+		s.writeError(w, "INVALID_JSON", "Неверный формат запроса", http.StatusBadRequest)
+		return
+	}
+
+	if req.Original == "" || req.SourceLang == "" {
+		s.writeError(w, "MISSING_PARAMS", "Поля original и source_lang обязательны", http.StatusBadRequest)
+		return
+	}
+
+	if !isValidLang(req.SourceLang) {
+		s.writeError(w, "UNSUPPORTED_LANG", "Поддерживаются языки: ru, en, zh", http.StatusBadRequest)
+		return
+	}
+
+	s.logger.Debug("Запрос на проверку перевода",
+		slog.String("original", req.Original),
+		slog.String("source_lang", req.SourceLang),
+	)
+
+	sourceCol := langToColumn(req.SourceLang)
+
+	// Выбираем переводы на все остальные языки (колонки из whitelist — безопасно)
+	allLangs := []string{"ru", "en", "zh"}
+	var targetLangs []string
+	var targetCols []string
+	for _, lang := range allLangs {
+		if lang != req.SourceLang {
+			targetLangs = append(targetLangs, lang)
+			targetCols = append(targetCols, langToColumn(lang))
+		}
+	}
+
+	query := `SELECT ` + strings.Join(targetCols, ", ") +
+		` FROM dictionary.dictionary_table WHERE LOWER(` + sourceCol + `) = LOWER($1)`
+
+	vals := make([]string, len(targetLangs))
+	ptrs := make([]interface{}, len(targetLangs))
+	for i := range ptrs {
+		ptrs[i] = &vals[i]
+	}
+
+	if err := s.db.QueryRow(query, req.Original).Scan(ptrs...); err != nil {
+		s.logger.Warn("Слово не найдено",
+			slog.String("word", req.Original),
+			slog.Any("error", err),
+		)
+		s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
+		return
+	}
+
+	translations := make(map[string]string, len(targetLangs))
+	for i, lang := range targetLangs {
+		translations[lang] = vals[i]
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(models.CheckTranslationResponse{
+		Translations: translations,
+	})
 }
 
 // handleHealth проверяет состояние сервиса и соединения с БД

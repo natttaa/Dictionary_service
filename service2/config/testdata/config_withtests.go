@@ -64,12 +64,13 @@ func LoadConfig(configPath string) (*Config, error) {
 func findConfigFile() string {
 	paths := []string{
 		"config/service2.json",
-		//"config/testdata/valid_config.json",
-		//"config/testdata/debug_config.json",
-		//"config/testdata/invalid_port.json",
-		//"config/testdata/invalid_db_port.json",
-		//"config/testdata/invalid_log_level.json",
-		//"config/testdata/malformed.json",
+		// тестовые конфиги
+		"config/testdata/valid_config.json",
+		"config/testdata/debug_config.json",
+		"config/testdata/invalid_port.json",
+		"config/testdata/invalid_db_port.json",
+		"config/testdata/invalid_log_level.json",
+		"config/testdata/malformed.json",
 	}
 
 	for _, path := range paths {
@@ -94,17 +95,25 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("неверный порт: %d", config.Port)
 	}
 	if config.Data.Port <= 0 || config.Data.Port > 65535 {
-		return fmt.Errorf("неверный порт для database: %d", config.Port)
+		return fmt.Errorf("неверный порт для database: %d", config.Data.Port)
 	}
 
-	//сюда добавить timeout
+	// Валидация таймаута сервера (0 допустимо — таймаут не задан)
+	if config.TimeoutSeconds < 0 {
+		return fmt.Errorf("таймаут не может быть отрицательным: %d", config.TimeoutSeconds)
+	}
+	// Валидация таймаута БД
+	if config.Data.TimeoutSeconds < 0 {
+		return fmt.Errorf("таймаут БД не может быть отрицательным: %d", config.Data.TimeoutSeconds)
+	}
 
 	// Валидация уровня логирования
 	validLogLevels := map[string]bool{
 		"debug": true,
 		"info":  true,
 		"warn":  true,
-		"error": true}
+		"error": true,
+	}
 
 	if !validLogLevels[config.LogLevel] {
 		return fmt.Errorf("неверный уровень логирования: %s (допустимые: debug, info, warn, error)", config.LogLevel)
