@@ -4,8 +4,7 @@ import (
 	"dictionary-service/config"
 	"dictionary-service/server"
 	"log"
-
-	_ "github.com/lib/pq"
+	//_ "github.com/lib/pq"
 )
 
 type Config struct {

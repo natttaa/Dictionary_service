@@ -1,7 +1,7 @@
 package server
 
 import (
-	"database/sql"
+	"context"
 	"dictionary-service/config"
 	"fmt"
 	"log"
@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Server представляет основной сервер приложения
 type Server struct {
 	config *config.Config
-	db     *sql.DB
+	db     *pgxpool.Pool
 	logger *slog.Logger
 }
 
@@ -36,6 +36,7 @@ func (s *Server) Start(cfg *config.Config) error {
 		return fmt.Errorf("ошибка подключения к БД: %w", err)
 	}
 	s.db = db
+	defer s.db.Close()
 
 	mux := http.NewServeMux()
 
@@ -57,35 +58,45 @@ func (s *Server) Start(cfg *config.Config) error {
 	return http.ListenAndServe(addr, s.loggerMiddleware(mux))
 }
 
-// connectToDatabase устанавливает подключение к PostgreSQL и возвращает *sql.DB
-func (s *Server) connectToDatabase(cfg *config.Config) (*sql.DB, error) {
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+// connectToDatabase устанавливает подключение к PostgreSQL через pgxpool
+func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
+	connString := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
 		cfg.Data.Host,
 		cfg.Data.Port,
 		cfg.Data.User,
 		cfg.Data.Password,
 		cfg.Data.Dbname,
 		cfg.Data.SSL_mode,
+		cfg.Data.TimeoutSeconds,
 	)
 
 	log.Println("Установка подключения к PostgreSQL...")
 
-	db, err := sql.Open("postgres", dsn)
+	poolCfg, err := pgxpool.ParseConfig(connString)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка открытия БД: %w", err)
+		return nil, fmt.Errorf("ошибка парсинга конфигурации БД: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	poolCfg.MaxConns = 25
+	poolCfg.MinConns = 5
+	poolCfg.MaxConnLifetime = 5 * time.Minute
 
-	if err := db.Ping(); err != nil {
-		db.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Data.Timeout)
+	defer cancel()
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания пула соединений: %w", err)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
 		return nil, fmt.Errorf("БД не отвечает: %w", err)
 	}
 
 	log.Println("Подключение к PostgreSQL успешно установлено")
-	return db, nil
+	return pool, nil
 }
 
 // loggerMiddleware middleware для логирования всех входящих запросов

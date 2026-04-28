@@ -3,9 +3,12 @@ package server
 import (
 	"dictionary-service/models"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // handleTranslate обрабатывает запросы на перевод слова
@@ -48,13 +51,17 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT ` + targetCol + ` FROM dictionary.dictionary_table WHERE LOWER(` + sourceCol + `) = LOWER($1)`
 
 	var translation string
-	err := s.db.QueryRow(query, req.Word).Scan(&translation)
+	err := s.db.QueryRow(r.Context(), query, req.Word).Scan(&translation)
 	if err != nil {
-		s.logger.Warn("Слово не найдено",
-			slog.String("word", req.Word),
-			slog.Any("error", err),
-		)
-		s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
+		} else {
+			s.logger.Warn("Ошибка запроса перевода",
+				slog.String("word", req.Word),
+				slog.Any("error", err),
+			)
+			s.writeError(w, "INTERNAL_ERROR", "Ошибка получения перевода", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -98,7 +105,7 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Debug("Запрос списка тем")
 
-	rows, err := s.db.Query(`SELECT DISTINCT category FROM dictionary.dictionary_table ORDER BY category`)
+	rows, err := s.db.Query(r.Context(), `SELECT DISTINCT category FROM dictionary.dictionary_table ORDER BY category`)
 	if err != nil {
 		s.logger.Error("Ошибка запроса тем", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения тем", http.StatusInternalServerError)
@@ -114,6 +121,12 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		topics = append(topics, topic)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Ошибка итерации тем", slog.Any("error", err))
+		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения тем", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -164,7 +177,7 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT ` + strings.Join(cols, ", ") +
 		` FROM dictionary.dictionary_table WHERE LOWER(category) = LOWER($1) ORDER BY ` + cols[0]
 
-	rows, err := s.db.Query(query, req.Topic)
+	rows, err := s.db.Query(r.Context(), query, req.Topic)
 	if err != nil {
 		s.logger.Error("Ошибка запроса слов по теме", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения слов по теме", http.StatusInternalServerError)
@@ -174,8 +187,8 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 
 	var words []models.WordEntry
 	for rows.Next() {
-		vals := make([]string, len(req.Languages))
-		ptrs := make([]interface{}, len(req.Languages))
+		vals := make([]any, len(req.Languages))
+		ptrs := make([]any, len(req.Languages))
 		for i := range ptrs {
 			ptrs[i] = &vals[i]
 		}
@@ -187,10 +200,18 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 
 		translations := make(map[string]string, len(req.Languages))
 		for i, lang := range req.Languages {
-			translations[lang] = vals[i]
+			if s, ok := vals[i].(string); ok {
+				translations[lang] = s
+			}
 		}
 
 		words = append(words, models.WordEntry{Translations: translations})
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Ошибка итерации слов", slog.Any("error", err))
+		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения слов по теме", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -249,24 +270,31 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 	query := `SELECT ` + strings.Join(targetCols, ", ") +
 		` FROM dictionary.dictionary_table WHERE LOWER(` + sourceCol + `) = LOWER($1)`
 
-	vals := make([]string, len(targetLangs))
-	ptrs := make([]interface{}, len(targetLangs))
+	vals := make([]any, len(targetLangs))
+	ptrs := make([]any, len(targetLangs))
 	for i := range ptrs {
 		ptrs[i] = &vals[i]
 	}
 
-	if err := s.db.QueryRow(query, req.Original).Scan(ptrs...); err != nil {
-		s.logger.Warn("Слово не найдено",
-			slog.String("word", req.Original),
-			slog.Any("error", err),
-		)
-		s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
+	err := s.db.QueryRow(r.Context(), query, req.Original).Scan(ptrs...)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.writeError(w, "WORD_NOT_FOUND", "Слово не найдено в словаре", http.StatusNotFound)
+		} else {
+			s.logger.Warn("Ошибка запроса проверки перевода",
+				slog.String("word", req.Original),
+				slog.Any("error", err),
+			)
+			s.writeError(w, "INTERNAL_ERROR", "Ошибка проверки перевода", http.StatusInternalServerError)
+		}
 		return
 	}
 
 	translations := make(map[string]string, len(targetLangs))
 	for i, lang := range targetLangs {
-		translations[lang] = vals[i]
+		if s, ok := vals[i].(string); ok {
+			translations[lang] = s
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -286,7 +314,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Debug("Запрос проверки здоровья")
 
-	if err := s.db.Ping(); err != nil {
+	if err := s.db.Ping(r.Context()); err != nil {
 		s.logger.Warn("БД недоступна", slog.Any("error", err))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
