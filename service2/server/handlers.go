@@ -13,9 +13,6 @@ import (
 )
 
 // handleTranslate обрабатывает запросы на перевод слова
-// POST /api/v1/translate
-// Принимает: {"source_lang": "ru", "target_lang": "en", "word": "Собака"}
-// Возвращает: {"translation": "Dog"}
 func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
@@ -45,7 +42,6 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		slog.String("word", req.Word),
 	)
 
-	// Динамически подставляем имена колонок (безопасно — только из whitelist isValidLang)
 	sourceCol := langToColumn(req.SourceLang)
 	targetCol := langToColumn(req.TargetLang)
 
@@ -83,7 +79,6 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLanguages возвращает список поддерживаемых языков
-// GET /api/v1/languages
 func (s *Server) handleLanguages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только GET метод", http.StatusMethodNotAllowed)
@@ -106,7 +101,6 @@ func (s *Server) handleLanguages(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTopics возвращает список уникальных тем из БД
-// GET /api/v1/topics
 func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только GET метод", http.StatusMethodNotAllowed)
@@ -145,9 +139,6 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTopicWords возвращает слова по теме для указанных языков
-// POST /api/v1/topics/words
-// Принимает: {"topic": "animals", "languages": ["ru", "en"]}
-// Возвращает: {"topic": "animals", "words": [{"translations": {"ru": "Собака", "en": "Dog"}}]}
 func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
@@ -178,7 +169,6 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 		slog.Any("languages", req.Languages),
 	)
 
-	// Формируем список колонок из whitelist — SQL-инъекция невозможна
 	cols := make([]string, len(req.Languages))
 	for i, lang := range req.Languages {
 		cols[i] = langToColumn(lang)
@@ -233,9 +223,6 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCheckTranslation проверяет правильность перевода пользователя
-// POST /api/v1/check-translation
-// Принимает: {"word": "Собака", "translation": "Dog", "source_lang": "ru"}
-// Возвращает: {"translations": {"en": "Dog", "zh": "狗"}}
 func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.writeError(w, "METHOD_NOT_ALLOWED", "Разрешен только POST метод", http.StatusMethodNotAllowed)
@@ -267,7 +254,6 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 
 	sourceCol := langToColumn(req.SourceLang)
 
-	// Выбираем переводы на все остальные языки (колонки из whitelist — безопасно)
 	allLangs := []string{"ru", "en", "zh"}
 	var targetLangs []string
 	var targetCols []string
@@ -328,9 +314,6 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 }
 
 // pickCorrectTranslation выбирает строку правильного перевода для ответа.
-// 1) Если ввод пользователя совпадает (без учёта регистра/пробелов) с одним из переводов — возвращаем именно его.
-// 2) Иначе определяем язык ввода эвристикой по символам (кириллица→ru, ханьцзы→zh, латиница→en) и берём перевод на этом языке.
-// 3) Иначе — первый доступный перевод (детерминированно: en, zh, ru).
 func pickCorrectTranslation(userTranslation string, translations map[string]string) string {
 	user := strings.TrimSpace(userTranslation)
 	for _, v := range translations {
