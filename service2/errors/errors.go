@@ -2,7 +2,7 @@ package errors
 
 import "errors"
 
-// Common errors
+// Базовые ошибки
 var (
 	ErrInvalidRequest     = errors.New("invalid request")
 	ErrValidationFailed   = errors.New("validation failed")
@@ -10,11 +10,9 @@ var (
 	ErrTimeout            = errors.New("request timeout")
 )
 
-// Business errors
+// Бизнес ошибки
 var (
 	ErrWordNotFound        = errors.New("word not found")
 	ErrUnsupportedLang     = errors.New("unsupported language")
 	ErrTranslationNotFound = errors.New("translation not found")
 )
-
-//dbase
