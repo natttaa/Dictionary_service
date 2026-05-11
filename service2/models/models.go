@@ -45,10 +45,6 @@ type CheckTranslationRequest struct {
 }
 
 // CheckTranslationResponse - ответ на проверку перевода.
-// Translation — один правильный перевод (на языке введённого пользователем варианта,
-// определяемом эвристикой; если пользовательский ввод совпадает с одной из ячеек БД,
-// возвращается именно она). Поле читается клиентами вроде CLI service1.
-// Translations — все переводы, кроме source-языка, для альтернативных клиентов.
 type CheckTranslationResponse struct {
 	Translation  string            `json:"translation,omitempty"`
 	Translations map[string]string `json:"translations,omitempty"`
