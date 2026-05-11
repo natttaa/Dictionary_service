@@ -91,9 +91,6 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("неверный порт для database: %d", config.Port)
 	}
 
-	//сюда добавить timeout
-
-	// Валидация уровня логирования
 	validLogLevels := map[string]bool{
 		"debug": true,
 		"info":  true,
