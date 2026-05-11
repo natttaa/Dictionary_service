@@ -75,6 +75,7 @@ func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 
 	poolCfg, err := pgxpool.ParseConfig(connString)
 	if err != nil {
+		log.Printf("Ошибка соединения с БД: парсинг конфигурации: %v", err)
 		return nil, fmt.Errorf("ошибка парсинга конфигурации БД: %w", err)
 	}
 
@@ -87,10 +88,12 @@ func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 
 	pool, err := pgxpool.ConnectConfig(ctx, poolCfg)
 	if err != nil {
+		log.Printf("Ошибка соединения с БД: создание пула: %v", err)
 		return nil, fmt.Errorf("ошибка создания пула соединений: %w", err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
+		log.Printf("Ошибка соединения с БД: %v", err)
 		pool.Close()
 		return nil, fmt.Errorf("БД не отвечает: %w", err)
 	}
