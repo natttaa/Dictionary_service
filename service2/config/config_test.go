@@ -87,11 +87,8 @@ func TestLoadConfig_MalformedJSON(t *testing.T) {
 
 // TestLoadConfig_EmptyPath_ReturnsDefault проверяет, что пустой путь даёт дефолтный конфиг
 func TestLoadConfig_EmptyPath_ReturnsDefault(t *testing.T) {
-	// Если файл config/service2.json существует — тест пропускаем,
-	// так как поведение зависит от окружения
 	cfg, err := LoadConfig("")
 	if err != nil {
-		// Если файл найден, но невалиден — это тоже нормальный исход
 		t.Logf("LoadConfig('') вернул ошибку (возможно найден файл окружения): %v", err)
 		return
 	}
