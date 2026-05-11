@@ -20,7 +20,6 @@ type Config struct {
 }
 
 func main() {
-	// Шаг 1: загрузка конфигурации
 	cfg, err := config.LoadConfig("config/service2.json")
 	if err != nil {
 		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
