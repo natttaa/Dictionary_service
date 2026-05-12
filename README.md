@@ -16,8 +16,8 @@ CLI-приложение для изучения иностранных слов
                                                             │ PostgreSQL  │
                                                             └─────────────┘
 ```
+<img width="605" height="388" alt="image" src="https://github.com/user-attachments/assets/6ae48240-c92a-4b0b-98d5-1b68983e7fe9" />
 
-<img width="400" height="500" alt="image" src="https://github.com/user-attachments/assets/d9924f73-0b3d-406e-89cd-6542912402e5" />
 
 
 
