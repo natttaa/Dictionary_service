@@ -53,36 +53,12 @@ go run cmd/service1/main.go
 
 ### 3. Использование CLI Клиента
 
-```bash
-# Перевод слова
-go run cmd/cli/main.go --source zh --target ru --word "zha3o"
-
-# Проверка перевода
-go run cmd/cli/main.go --check --word "искать" --translation "zha3o" --language ru
-
-# Слова по теме на одном языке (тема обязательно на русском)
-go run cmd/cli/main.go --topic животные --languages ru
-
-# Слова по теме на нескольких языках (тема обязательно на русском)
-go run cmd/cli/main.go --topic животные --languages ru,en,zh
-
-# Список языков
-go run cmd/cli/main.go --list-languages
-
-# Список тем
-go run cmd/cli/main.go --list-topics
-
-# Проверка здоровья сервисов
-go run cmd/cli/main.go --health
-```
-
 ## Команды CLI
 
 ### Флаги
 
 | Флаг | Описание | Пример |
 |------|----------|--------|
-| `--server` | Адрес Сервиса-1 | `--server http://localhost:8080` |
 | `--source` | Язык оригинала | `--source zh` |
 | `--target` | Целевой язык | `--target ru` |
 | `--word` | Слово для перевода | `--word "zha3o"` |
@@ -100,17 +76,29 @@ go run cmd/cli/main.go --health
 ### Примеры
 
 ```bash
-# Указание сервера (по умолчанию http://localhost:8080)
-go run cmd/cli/main.go --server http://localhost:8080 --source en --target ru --word "hello"
-
-# Сравнение трех языков в табличном формате
-go run cmd/cli/main.go --topic animals --languages ru,en,zh --format table
-
-# Экспорт в JSON
-go run cmd/cli/main.go --topic food --languages ru,en --format json
+# Перевод слова
+go run cmd/cli/main.go --source zh --target ru --word "zha3o"
 
 # Проверка перевода
-go run cmd/cli/main.go --check --word "собака" --translation "dog" --language ru
+go run cmd/cli/main.go --check --word "утка" --translation "ya1zi" --language ru
+
+# Перевод
+go run cmd/cli/main.go --word "утка" --source ru --target zh
+
+# Слова по теме на одном языке (тема обязательно на русском)
+go run cmd/cli/main.go --topic животные --languages ru
+
+# Слова по теме на нескольких языках (тема обязательно на русском)
+go run cmd/cli/main.go --topic животные --languages ru,en,zh
+
+# Список языков
+go run cmd/cli/main.go --list-languages
+
+# Список тем
+go run cmd/cli/main.go --list-topics
+
+# Проверка здоровья сервисов
+go run cmd/cli/main.go --health
 ```
 
 
