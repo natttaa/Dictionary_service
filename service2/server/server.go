@@ -9,13 +9,22 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
+// poolIface exposes only the pgxpool methods used by this server.
+type poolIface interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Ping(ctx context.Context) error
+	Close()
+}
 
 // Server представляет основной сервер приложения
 type Server struct {
 	config *config.Config
-	db     *pgxpool.Pool
+	db     poolIface
 	logger *slog.Logger
 }
 
@@ -59,7 +68,7 @@ func (s *Server) Start(cfg *config.Config) error {
 }
 
 // connectToDatabase устанавливает подключение к PostgreSQL через pgxpool
-func (s *Server) connectToDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
+func (s *Server) connectToDatabase(cfg *config.Config) (poolIface, error) {
 	connString := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
 		cfg.Data.Host,
