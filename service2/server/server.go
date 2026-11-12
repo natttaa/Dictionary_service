@@ -23,9 +23,10 @@ type poolIface interface {
 
 // Server представляет основной сервер приложения
 type Server struct {
-	config *config.Config
-	db     poolIface
-	logger *slog.Logger
+	config  *config.Config
+	db      poolIface
+	logger  *slog.Logger
+	metrics *requestMetrics
 }
 
 // NewServer создает новый экземпляр сервера
@@ -33,8 +34,9 @@ func NewServer(cfg *config.Config) *Server {
 	logger := cfg.SetupLogger()
 
 	return &Server{
-		config: cfg,
-		logger: logger,
+		config:  cfg,
+		logger:  logger,
+		metrics: newRequestMetrics(),
 	}
 }
 
@@ -56,6 +58,7 @@ func (s *Server) Start(cfg *config.Config) error {
 	mux.HandleFunc("/api/v1/topics", s.handleTopics)
 	mux.HandleFunc("/api/v1/topics/words", s.handleTopicWords)
 	mux.HandleFunc("/api/v1/check-translation", s.handleCheckTranslation)
+	mux.Handle("/metrics", s.metrics)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
 	s.logger.Info("Запуск сервера",
@@ -129,6 +132,9 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
 		next.ServeHTTP(rec, r)
+		if r.URL.Path != "/metrics" {
+			s.metrics.observe(r.Method, r.URL.Path, rec.status, time.Since(start))
+		}
 
 		s.logger.Info("Запрос обработан",
 			slog.String("method", r.Method),

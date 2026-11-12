@@ -1,0 +1,38 @@
+services:
+  prometheus:
+    build:
+      context: .
+      dockerfile: prometheus.Dockerfile
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.listen-address=:9093
+    volumes:
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - target: 9093
+        host_ip: 127.0.0.1
+    restart: unless-stopped
+
+  grafana:
+    build:
+      context: .
+      dockerfile: grafana.Dockerfile
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - target: 3000
+        host_ip: 127.0.0.1
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

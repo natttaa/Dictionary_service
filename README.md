@@ -63,6 +63,33 @@ go run cmd/cli/main.go --list-languages
 
 При успешном запуске проверка выводит `Статус сервиса: healthy` и `Словарный сервис: ok`. Если выводится `unhealthy`, проверьте журнал Сервиса-2 и соединение с PostgreSQL. Для остановки серверов нажмите `Ctrl+C` в первых двух терминалах.
 
+## Мониторинг в Grafana
+
+Оба сервиса отдают метрики запросов по адресу `/metrics`. Prometheus собирает их каждые 10 секунд, а Grafana показывает доступность сервисов, число запросов и ошибок по HTTP-кодам, а также среднее время ответа. Docker Compose запускает **только Prometheus и Grafana**; сами Go-сервисы по-прежнему запускаются на компьютере командами из раздела «Быстрый старт».
+
+1. Запустите Docker и оба Go-сервиса на том же компьютере. Для Сервиса-2 нужно работающее соединение с PostgreSQL.
+2. Из корня `Dictionary_service` запустите мониторинг:
+
+   ```powershell
+   docker compose -f monitoring/compose.yaml up --build -d
+   ```
+
+3. Docker сам выберет свободные порты на компьютере. Узнайте их командами:
+
+   ```powershell
+   docker compose -f monitoring/compose.yaml port grafana 3000
+   docker compose -f monitoring/compose.yaml port prometheus 9093
+   ```
+
+   Команды выведут адреса вида `127.0.0.1:49152`. Откройте первый адрес в браузере — это Grafana. При первом запуске войдите с логином `admin` и паролем `admin`, затем смените пароль. Готовый дашборд находится в папке **Dictionary service** под названием **Dictionary services**.
+4. По второму адресу откройте путь `/targets`: у `service1` и `service2` должно быть состояние `UP`. Выполните `go run cmd/cli/main.go --health` из каталога `service1`, чтобы появились первые данные о запросах. Графики скорости и времени ответа заполнятся после нескольких запросов и двух сборов метрик.
+
+Prometheus слушает порт `9093` внутри контейнера; Grafana обращается к нему по адресу `prometheus:9093`. Назначенные Docker внешние порты могут измениться при пересоздании контейнеров.
+
+Конфигурация Prometheus и файлы Grafana копируются в Docker-образы при сборке. Это устраняет проблемы с доступом к примонтированным файлам на Fedora. После изменения файлов в `monitoring` пересоберите образы командой `docker compose -f monitoring/compose.yaml up --build -d --force-recreate`.
+
+Остановить мониторинг: `docker compose -f monitoring/compose.yaml down`. Данные Grafana и Prometheus хранятся в Docker volumes и сохраняются при обычной остановке. Если сервис недоступен, проверьте его терминал и адреса `localhost:8081`/`localhost:8083`; контейнеры обращаются к ним через `host.docker.internal`.
+
 ## Команды CLI
 
 Примеры ниже выполняются из каталога `service1` при запущенных обоих сервисах.
@@ -73,7 +100,7 @@ go run cmd/cli/main.go --list-languages
 |------|----------|--------|
 | `--source` | Язык оригинала | `--source zh` |
 | `--target` | Целевой язык | `--target ru` |
-| `--word` | Слово для перевода | `--word "zha3o"` |
+| `--word` | Слово для перевода | `--word "<слово из словаря>"` |
 | `--topic` | Тема для получения слов | `--topic animals` |
 | `--language` | Один язык | `--language ru` |
 | `--languages` | Несколько языков (через запятую) | `--languages ru,en,zh` |
@@ -87,8 +114,12 @@ go run cmd/cli/main.go --list-languages
 ### Примеры
 
 ```bash
-# Перевод слова
-go run cmd/cli/main.go --source zh --target ru --word "zha3o"
+# Выберите тему из списка и посмотрите слова, которые есть в БД
+go run cmd/cli/main.go --list-topics
+go run cmd/cli/main.go --topic "<тема из списка>" --languages zh,ru
+
+# Подставьте слово из столбца zh точно так, как оно показано в выводе
+go run cmd/cli/main.go --source zh --target ru --word "<слово из столбца zh>"
 
 # Проверка перевода
 go run cmd/cli/main.go --check --word "утка" --translation "ya1zi" --language ru
