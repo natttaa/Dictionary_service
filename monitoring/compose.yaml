@@ -4,13 +4,15 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      - --web.listen-address=:9093
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     extra_hosts:
       - host.docker.internal:host-gateway
     ports:
-      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9093}:9090"
+      - target: 9093
+        host_ip: 127.0.0.1
     restart: unless-stopped
 
   grafana:
@@ -24,7 +26,8 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - 127.0.0.1:3000:3000
+      - target: 3000
+        host_ip: 127.0.0.1
     depends_on:
       - prometheus
     restart: unless-stopped

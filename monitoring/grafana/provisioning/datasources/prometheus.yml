@@ -4,6 +4,6 @@ datasources:
     uid: dictionary-prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://prometheus:9093
     isDefault: true
     editable: false
