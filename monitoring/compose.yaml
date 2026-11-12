@@ -1,18 +1,14 @@
 services:
   prometheus:
-    image: prom/prometheus:v3.13.2
+    build:
+      context: .
+      dockerfile: prometheus.Dockerfile
+    image: dictionary-prometheus:local
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --web.listen-address=:9093
     volumes:
-      - type: bind
-        source: ./prometheus.yml
-        target: /etc/prometheus/prometheus.yml
-        read_only: true
-        bind:
-          create_host_path: false
-          selinux: z
       - prometheus-data:/prometheus
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -22,27 +18,16 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.1.10
+    build:
+      context: .
+      dockerfile: grafana.Dockerfile
+    image: dictionary-grafana:local
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
-      - type: bind
-        source: ./grafana/provisioning
-        target: /etc/grafana/provisioning
-        read_only: true
-        bind:
-          create_host_path: false
-          selinux: z
-      - type: bind
-        source: ./grafana/dashboards
-        target: /var/lib/grafana/dashboards
-        read_only: true
-        bind:
-          create_host_path: false
-          selinux: z
     ports:
       - target: 3000
         host_ip: 127.0.0.1
