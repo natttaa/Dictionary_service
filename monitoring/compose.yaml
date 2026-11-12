@@ -6,7 +6,13 @@ services:
       - --storage.tsdb.path=/prometheus
       - --web.listen-address=:9093
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - type: bind
+        source: ./prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
       - prometheus-data:/prometheus
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -23,8 +29,20 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - type: bind
+        source: ./grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
+      - type: bind
+        source: ./grafana/dashboards
+        target: /var/lib/grafana/dashboards
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: z
     ports:
       - target: 3000
         host_ip: 127.0.0.1

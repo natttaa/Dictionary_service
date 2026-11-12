@@ -86,6 +86,8 @@ go run cmd/cli/main.go --list-languages
 
 Prometheus слушает порт `9093` внутри контейнера; Grafana обращается к нему по адресу `prometheus:9093`. Назначенные Docker внешние порты могут измениться при пересоздании контейнеров.
 
+На Fedora, если Prometheus пишет `permission denied` для `prometheus.yml` или Grafana не показывает дашборд, проверьте, что на компьютере есть **весь** каталог `monitoring`, затем из корня проекта выполните `chmod -R a+rX ./monitoring` и `docker compose -f ./monitoring/compose.yaml up -d --force-recreate`. Compose также помечает подключённые файлы для доступа через SELinux. Дашборд должен лежать в `monitoring/grafana/dashboards/dictionary-services.json`.
+
 Остановить мониторинг: `docker compose -f monitoring/compose.yaml down`. Данные Grafana и Prometheus хранятся в Docker volumes и сохраняются при обычной остановке. Если сервис недоступен, проверьте его терминал и адреса `localhost:8081`/`localhost:8083`; контейнеры обращаются к ним через `host.docker.internal`.
 
 ## Команды CLI
