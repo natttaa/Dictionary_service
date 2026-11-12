@@ -15,6 +15,7 @@ type Server struct {
 	httpClient *http.Client
 	httpServer *http.Server
 	Logger     *slog.Logger
+	metrics    *requestMetrics
 }
 
 // NewServer создает новый экземпляр сервера
@@ -27,7 +28,8 @@ func NewServer(config *config.Config) *Server {
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 		},
-		Logger: logger,
+		Logger:  logger,
+		metrics: newRequestMetrics(),
 	}
 }
 
@@ -42,6 +44,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/v1/topics", s.handleTopics)
 	mux.HandleFunc("/api/v1/topics/words", s.handleTopicWords)
 	mux.HandleFunc("/api/v1/check-translation", s.handleCheckTranslation)
+	mux.Handle("/metrics", s.metrics)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
 
@@ -94,6 +97,9 @@ func (s *Server) loggerMiddleware(next http.Handler) http.Handler {
 		// Создаём responseWriter с захватом статуса для логирования
 		rw := &responseWriter{w, http.StatusOK}
 		next.ServeHTTP(rw, r)
+		if r.URL.Path != "/metrics" {
+			s.metrics.observe(r.Method, r.URL.Path, rw.status, time.Since(start))
+		}
 
 		// Логируем завершение запроса
 		s.Logger.Info("Запрос обработан",
