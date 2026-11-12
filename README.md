@@ -75,9 +75,9 @@ go run cmd/cli/main.go --list-languages
    ```
 
 3. Откройте [Grafana](http://localhost:3000). При первом запуске войдите с логином `admin` и паролем `admin`, затем смените пароль. Готовый дашборд находится в папке **Dictionary service** под названием **Dictionary services**.
-4. Откройте [страницу целей Prometheus](http://localhost:9091/targets): у `service1` и `service2` должно быть состояние `UP`. Выполните `go run cmd/cli/main.go --health` из каталога `service1`, чтобы появились первые данные о запросах. Графики скорости и времени ответа заполнятся после нескольких запросов и двух сборов метрик.
+4. Откройте [страницу целей Prometheus](http://localhost:9093/targets): у `service1` и `service2` должно быть состояние `UP`. Выполните `go run cmd/cli/main.go --health` из каталога `service1`, чтобы появились первые данные о запросах. Графики скорости и времени ответа заполнятся после нескольких запросов и двух сборов метрик.
 
-Если порт `9091` тоже занят, задайте другой перед запуском, например `$env:PROMETHEUS_HOST_PORT=9092`, и откройте Prometheus на выбранном порту. Grafana внутри Docker по-прежнему обращается к Prometheus по адресу `prometheus:9090`.
+Если порт `9093` тоже занят, задайте другой перед запуском, например `$env:PROMETHEUS_HOST_PORT=9094`, и откройте Prometheus на выбранном порту. Grafana внутри Docker по-прежнему обращается к Prometheus по адресу `prometheus:9090`.
 
 Остановить мониторинг: `docker compose -f monitoring/compose.yaml down`. Данные Grafana и Prometheus хранятся в Docker volumes и сохраняются при обычной остановке. Если сервис недоступен, проверьте его терминал и адреса `localhost:8081`/`localhost:8083`; контейнеры обращаются к ним через `host.docker.internal`.
 
