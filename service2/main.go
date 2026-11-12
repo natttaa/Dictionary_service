@@ -26,6 +26,8 @@ func main() {
 	}
 
 	s := server.NewServer(cfg)
-	s.Start(cfg)
+	if err := s.Start(cfg); err != nil {
+		log.Fatalf("Ошибка запуска сервиса: %v", err)
+	}
 
 }

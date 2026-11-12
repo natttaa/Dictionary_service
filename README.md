@@ -27,33 +27,45 @@ CLI-приложение для изучения иностранных слов
 
 ## Быстрый старт
 
-### 1. Запуск Сервиса-2 (словарь + БД)
+Команды ниже выполняются в PowerShell из корня репозитория `Dictionary_service`. Для работы нужны Go 1.24+ и доступ к PostgreSQL из `service2/config/service2.json`. Сервисы запускаются из **разных каталогов**, поскольку у каждого свой `go.mod`.
 
-```bash
-go run cmd/service2/main.go
+Перед запуском проверьте в `service2/config/service2.json` параметры `database.host`, `database.port`, `database.user`, `database.password`, `database.dbname` и `database.ssl_mode`. Не публикуйте пароль в README или коммитах. Адрес БД должен быть доступен с компьютера, где работает Сервис-2; для внутреннего адреса может понадобиться VPN.
+
+### 1. Сервис-2 (терминал 1)
+
+```powershell
+cd .\service2
+go run .
 ```
 
-Ожидаемый вывод:
-```
-2026/03/20 10:00:00 Сервис-2 запущен на :8083
-2026/03/20 10:00:00 Подключение к PostgreSQL установлено
-```
+Оставьте терминал открытым. Дождитесь сообщений `Подключение к PostgreSQL успешно установлено` и `Запуск сервера` с адресом `:8083`. Если подключение к БД не удалось, сначала проверьте её адрес, учётные данные, доступ по сети и VPN.
 
-### 2. Запуск Сервиса-1 (API Gateway)
+### 2. Сервис-1 (терминал 2)
 
-```bash
+Откройте новый терминал **из корня `Dictionary_service`**:
+
+```powershell
+cd .\service1
 go run cmd/service1/main.go
 ```
 
-Ожидаемый вывод:
-```
-2026/03/20 10:00:05 Сервис-1 запущен на :8081
-2026/03/20 10:00:05 Подключение к Сервису-2: http://localhost:8083
+Оставьте и этот терминал открытым. В журнале должно появиться `Запуск сервера` с адресом `:8081`.
+
+### 3. Проверка через CLI (терминал 3)
+
+Откройте третий терминал **из корня `Dictionary_service`**:
+
+```powershell
+cd .\service1
+go run cmd/cli/main.go --health
+go run cmd/cli/main.go --list-languages
 ```
 
-### 3. Использование CLI Клиента
+При успешном запуске проверка выводит `Статус сервиса: healthy` и `Словарный сервис: ok`. Если выводится `unhealthy`, проверьте журнал Сервиса-2 и соединение с PostgreSQL. Для остановки серверов нажмите `Ctrl+C` в первых двух терминалах.
 
 ## Команды CLI
+
+Примеры ниже выполняются из каталога `service1` при запущенных обоих сервисах.
 
 ### Флаги
 
@@ -69,7 +81,6 @@ go run cmd/service1/main.go
 | `--word` | Исходное слово | `--word "искать"` |
 | `--translation` | Перевод пользователя | `--translation "zha3o"` |
 | `--language` | Язык оригинала (для проверки) | `--language ru` |
-| `--format` | Формат вывода (table/json) | `--format json` |
 | `--list-languages` | Список языков | `--list-languages` |
 | `--list-topics` | Список тем | `--list-topics` |
 
@@ -133,108 +144,56 @@ go run cmd/cli/main.go --health
 
 ## Конфигурация
 
-### Сервис-1 (`configs/service1.json`)
-```json
-{
-  "port": 8080,
-  "log_level": "info",
-  "service2_url": "http://localhost:8081",
-  "timeout_seconds": 10
-}
-```
-
-### Сервис-2 (`configs/service2.json`)
+### Сервис-1 (`service1/configs/service.json`)
 ```json
 {
   "port": 8081,
+  "log_level": "debug",
+  "dictionary_service_url": "http://localhost:8083",
+  "timeout": 10
+}
+```
+
+### Сервис-2 (`service2/config/service2.json`)
+
+Пример структуры; подставьте параметры своей БД:
+
+```json
+{
+  "port": 8083,
   "log_level": "info",
+  "timeout": 30,
   "database": {
-    "host": "localhost",
+    "host": "адрес-базы",
     "port": 5432,
-    "user": "postgres",
-    "password": "postgres",
-    "dbname": "dictionary",
-    "ssl_mode": "disable"
+    "user": "имя-пользователя",
+    "password": "пароль",
+    "dbname": "имя-базы",
+    "ssl_mode": "disable",
+    "timeout": 10
   }
 }
 ```
 
-### CLI (`configs/cli.json`)
+### CLI (`service1/configs/cli.json`)
 ```json
 {
-  "server_url": "http://localhost:8080",
-  "timeout_seconds": 10,
-  "default_format": "table"
+  "translation_server_url": "http://localhost:8081",
+  "timeout": 30,
+  "default_format": "table",
+  "log_level": "info"
 }
-```
-
-## Запуск всех компонентов
-
-### Вариант 1: Ручной запуск (3 терминала)
-
-**Терминал 1 — Сервис-2:**
-```bash
-go run cmd/service2/main.go
-```
-
-**Терминал 2 — Сервис-1:**
-```bash
-go run cmd/service1/main.go
-```
-
-**Терминал 3 — CLI Клиент:**
-```bash
-go run cmd/cli/main.go --list-languages
-```
-
-### Вариант 2: Использование Makefile
-
-```bash
-# Запуск всех сервисов
-make run
-
-# Запуск только Сервиса-2
-make run-service2
-
-# Запуск только Сервиса-1
-make run-service1
-
-# Запуск CLI с примером
-make cli-example
-```
-
-### Makefile
-```makefile
-run-service2:
-	go run cmd/service2/main.go
-
-run-service1:
-	go run cmd/service1/main.go
-
-run:
-	go run cmd/service2/main.go &
-	go run cmd/service1/main.go &
-
-cli-example:
-	go run cmd/cli/main.go --list-languages
-
-test:
-	go test ./... -v
-
-.PHONY: run-service2 run-service1 run cli-example test
 ```
 
 ## Тестирование
 
-```bash
-# Все тесты
+Тесты запускаются отдельно в каждом модуле:
+
+```powershell
+cd .\service2
 go test ./... -v
-
-# Юнит-тесты с покрытием
-go test ./tests/unit/... -cover
-
-# Интеграционные тесты (требуют запущенные сервисы)
-go test ./tests/integration/... -v
+cd ..\service1
+go test ./... -v
 ```
 
 ## Ошибки
@@ -267,7 +226,7 @@ RateLimitExceeded — Слишком много запросов
 ```bash
 # Сервис-1 не запущен
 $ go run cmd/cli/main.go --list-languages
-Ошибка: не удалось подключиться к серверу http://localhost:8080
+Ошибка: не удалось подключиться к серверу http://localhost:8081
 Убедитесь, что Сервис-1 запущен
 
 # Слово не найдено
@@ -289,5 +248,5 @@ $ go run cmd/cli/main.go --source zh --target ru --word "nonexistent"
 
 ## Требования
 
-- Go 1.21+
+- Go 1.24+
 - PostgreSQL 14+
