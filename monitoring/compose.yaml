@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: prometheus.Dockerfile
-    image: dictionary-prometheus:local
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -21,7 +20,6 @@ services:
     build:
       context: .
       dockerfile: grafana.Dockerfile
-    image: dictionary-grafana:local
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
