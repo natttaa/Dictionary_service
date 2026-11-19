@@ -33,11 +33,15 @@ type Server struct {
 func NewServer(cfg *config.Config) *Server {
 	logger := cfg.SetupLogger()
 
-	return &Server{
+	s := &Server{
 		config:  cfg,
 		logger:  logger,
 		metrics: newRequestMetrics(),
 	}
+	s.metrics.probe = func(ctx context.Context) bool {
+		return s.db != nil && s.db.Ping(ctx) == nil
+	}
+	return s
 }
 
 // Start запускает HTTP сервер
