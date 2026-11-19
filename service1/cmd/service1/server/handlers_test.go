@@ -53,6 +53,18 @@ func TestHandleHealth(t *testing.T) {
 			},
 		},
 		{
+			name:   "database unavailable downstream",
+			method: http.MethodGet,
+			dictionaryMock: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					json.NewEncoder(w).Encode(models.HealthResponse{Status: "unhealthy"})
+				}))
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			expectedBody:   models.HealthResponse{Status: "unhealthy", Service2: "unhealthy"},
+		},
+		{
 			name:   "wrong method",
 			method: http.MethodPost,
 			dictionaryMock: func() *httptest.Server {

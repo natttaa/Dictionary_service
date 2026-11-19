@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 type requestMetrics struct {
 	mu     sync.Mutex
 	series map[requestLabels]*requestTotals
+	probe  func(context.Context) bool
 }
 
 type requestLabels struct {
@@ -77,6 +79,17 @@ func (m *requestMetrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fields := metricLabels(labels)
 		fmt.Fprintf(w, "dictionary_http_request_duration_seconds_sum{%s} %g\n", fields, totals.seconds)
 		fmt.Fprintf(w, "dictionary_http_request_duration_seconds_count{%s} %d\n", fields, totals.count)
+	}
+	if m.probe != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		value := 0
+		if m.probe(ctx) {
+			value = 1
+		}
+		fmt.Fprintln(w, "# HELP dictionary_dependency_up Whether the downstream dependency is healthy.")
+		fmt.Fprintln(w, "# TYPE dictionary_dependency_up gauge")
+		fmt.Fprintf(w, "dictionary_dependency_up{dependency=\"service2\"} %d\n", value)
 	}
 }
 

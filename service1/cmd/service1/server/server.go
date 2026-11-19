@@ -23,7 +23,7 @@ func NewServer(config *config.Config) *Server {
 	// Настраиваем логгер на основе конфигурации
 	logger := config.SetupLogger()
 
-	return &Server{
+	s := &Server{
 		config: config,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
@@ -31,6 +31,21 @@ func NewServer(config *config.Config) *Server {
 		Logger:  logger,
 		metrics: newRequestMetrics(),
 	}
+	s.metrics.probe = s.probeDictionary
+	return s
+}
+
+func (s *Server) probeDictionary(ctx context.Context) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.config.DictionaryServiceURL+"/api/v1/health", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 // Start запускает HTTP сервер
