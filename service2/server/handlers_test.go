@@ -16,7 +16,7 @@ import (
 func newTestServer(t *testing.T, mockPool pgxmock.PgxPoolIface) *Server {
 	t.Helper()
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	return &Server{logger: logger, db: mockPool}
+	return &Server{logger: logger, db: mockPool, metrics: newRequestMetrics()}
 }
 
 func testHandler(t *testing.T, method, path string, body interface{}, srv *Server, expectedStatus int, expectedBody interface{}) {

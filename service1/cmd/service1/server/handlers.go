@@ -277,6 +277,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Формирование ответа
+	status := http.StatusOK
+	health := "healthy"
+	if resp.StatusCode != http.StatusOK || dictHealth.Status != "healthy" {
+		status = http.StatusServiceUnavailable
+		health = "unhealthy"
+	}
 	w.Header().Set("Content-Type", "application/json")
 	status := http.StatusOK
 	serviceStatus := "healthy"
