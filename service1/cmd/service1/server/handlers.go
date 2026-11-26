@@ -284,15 +284,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		health = "unhealthy"
 	}
 	w.Header().Set("Content-Type", "application/json")
-	status := http.StatusOK
-	serviceStatus := "healthy"
-	if resp.StatusCode != http.StatusOK || dictHealth.Status != "healthy" {
-		status = http.StatusServiceUnavailable
-		serviceStatus = "unhealthy"
-	}
 	w.WriteHeader(status)
 	response := models.HealthResponse{
-		Status:   serviceStatus,
+		Status:   health,
 		Service2: dictHealth.Status,
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
