@@ -48,7 +48,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT ` + targetCol + ` FROM dictionary.dictionary_table WHERE LOWER(` + sourceCol + `) = LOWER($1)`
 
 	var translation string
-	err := s.db.QueryRow(r.Context(), query, req.Word).Scan(&translation)
+	err := s.queryRow(r.Context(), "translate", query, req.Word).Scan(&translation)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.logger.Warn("Слово не найдено в словаре",
@@ -109,7 +109,7 @@ func (s *Server) handleTopics(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Debug("Запрос списка тем")
 
-	rows, err := s.db.Query(r.Context(), `SELECT DISTINCT category FROM dictionary.dictionary_table ORDER BY category`)
+	rows, err := s.queryRows(r.Context(), "list_topics", `SELECT DISTINCT category FROM dictionary.dictionary_table ORDER BY category`)
 	if err != nil {
 		s.logger.Error("Ошибка запроса тем", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения тем", http.StatusInternalServerError)
@@ -177,7 +177,7 @@ func (s *Server) handleTopicWords(w http.ResponseWriter, r *http.Request) {
 	query := `SELECT ` + strings.Join(cols, ", ") +
 		` FROM dictionary.dictionary_table WHERE LOWER(category) = LOWER($1) ORDER BY ` + cols[0]
 
-	rows, err := s.db.Query(r.Context(), query, req.Topic)
+	rows, err := s.queryRows(r.Context(), "topic_words", query, req.Topic)
 	if err != nil {
 		s.logger.Error("Ошибка запроса слов по теме", slog.Any("error", err))
 		s.writeError(w, "INTERNAL_ERROR", "Ошибка получения слов по теме", http.StatusInternalServerError)
@@ -273,7 +273,7 @@ func (s *Server) handleCheckTranslation(w http.ResponseWriter, r *http.Request) 
 		ptrs[i] = &strs[i]
 	}
 
-	err := s.db.QueryRow(r.Context(), query, req.Word).Scan(ptrs...)
+	err := s.queryRow(r.Context(), "check_translation", query, req.Word).Scan(ptrs...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			s.logger.Warn("Слово не найдено в словаре",
